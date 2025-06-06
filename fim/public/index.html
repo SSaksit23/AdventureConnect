@@ -41,6 +41,58 @@
             white-space: nowrap !important;
         }
         
+        /* Fix for editable cells - ensure cursor shows properly */
+        .ag-cell.ag-cell-editable:not(.ag-cell-not-inline-editing) {
+            cursor: text !important;
+        }
+        
+        /* Date input styling */
+        .ag-cell input[type="date"] {
+            width: 100% !important;
+            height: 100% !important;
+            border: none !important;
+            background: transparent !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            text-align: center !important;
+            cursor: pointer !important;
+            padding: 8px !important;
+            outline: none !important;
+        }
+        
+        .ag-cell input[type="date"]:focus {
+            background: #f8fafc !important;
+            border: 2px solid #3b82f6 !important;
+            border-radius: 4px !important;
+        }
+        
+        /* Text input styling for PNR and other fields */
+        .ag-cell input[type="text"], .ag-cell input[type="number"] {
+            width: 100% !important;
+            height: 100% !important;
+            border: none !important;
+            background: transparent !important;
+            font-size: 14px !important;
+            padding: 8px !important;
+            outline: none !important;
+            cursor: text !important;
+        }
+        
+        .ag-cell input[type="text"]:focus, .ag-cell input[type="number"]:focus {
+            background: #f8fafc !important;
+            border: 2px solid #3b82f6 !important;
+            border-radius: 4px !important;
+        }
+        
+        /* Ensure proper cursor for editable cells */
+        .ag-cell-editable {
+            cursor: text !important;
+        }
+        
+        .ag-cell-editable:hover {
+            background: #f8fafc !important;
+        }
+        
         .ag-cell-wrapper {
             height: 100% !important;
             display: flex !important;
@@ -316,6 +368,80 @@
             };
         };
 
+        // Function to get PNR-based fare values (only for first flight of each PNR)
+        const getPNRFare = (params, fieldType) => {
+            if (!params.data || !params.data.pnr) return '';
+            
+            const currentPNR = params.data.pnr;
+            const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+            const firstOccurrence = rowData.findIndex(row => row.pnr === currentPNR);
+            
+            // Only show fare values for the first flight of each PNR
+            if (firstOccurrence === currentIndex) {
+                const firstFlightData = rowData[firstOccurrence];
+                return firstFlightData[fieldType] || 0;
+            }
+            return ''; // Empty for subsequent flights in the same PNR
+        };
+
+        // Function to set PNR-based fare values (updates all flights in the PNR)
+        const setPNRFare = (params, fieldType) => {
+            if (!params.data || !params.data.pnr) return false;
+            
+            const currentPNR = params.data.pnr;
+            const newValue = params.newValue;
+            
+            // Update all flights in the same PNR with the new fare value
+            rowData.forEach(row => {
+                if (row.pnr === currentPNR) {
+                    row[fieldType] = newValue;
+                }
+            });
+            
+            // Refresh the grid to show updated values
+            if (gridApi) {
+                gridApi.refreshCells({ force: true });
+            }
+            
+            return true;
+        };
+
+        // Function to calculate total fare for PNR (only for first flight of each PNR)
+        const getPNRTotalFare = (params) => {
+            if (!params.data || !params.data.pnr) return '';
+            
+            const currentPNR = params.data.pnr;
+            const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+            const firstOccurrence = rowData.findIndex(row => row.pnr === currentPNR);
+            
+            // Only show total fare for the first flight of each PNR
+            if (firstOccurrence === currentIndex) {
+                const firstFlightData = rowData[firstOccurrence];
+                const fare = Number(firstFlightData.fare) || 0;
+                const yq = Number(firstFlightData.yq) || 0;
+                return fare + yq;
+            }
+            return ''; // Empty for subsequent flights in the same PNR
+        };
+
+        // Function to calculate total deposit for PNR (only for first flight of each PNR)
+        const getPNRTotalDeposit = (params) => {
+            if (!params.data || !params.data.pnr) return '';
+            
+            const currentPNR = params.data.pnr;
+            const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+            const firstOccurrence = rowData.findIndex(row => row.pnr === currentPNR);
+            
+            // Only show total deposit for the first flight of each PNR
+            if (firstOccurrence === currentIndex) {
+                const firstFlightData = rowData[firstOccurrence];
+                const seats = Number(firstFlightData.seat) || 0;
+                const deposit = Number(firstFlightData.deposit) || 0;
+                return seats * deposit;
+            }
+            return ''; // Empty for subsequent flights in the same PNR
+        };
+
         // Function to get PNR-based deadlines (only for first flight of each PNR)
         const getPNRDeadlines = (params, dateType) => {
             if (!params.data || !params.data.pnr) return '';
@@ -381,34 +507,34 @@
         // In a real app, this would come from a database.
         // Based on the flight table provided - showing multi-segment journeys
         let rowData = [
-            // First PNR - China Urumqi Route 4 segments (30 May 25 departure)
-            { id: 1, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-05-30', flight: 'CZ3036', seat: 25, fare: 8500, yq: 1500, deposit: 2000, pushToMarket: 'Yes', route: 'BKK-CAN', time: '03.00-07.00' },
-            { id: 2, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-05-30', flight: 'CZ6900', seat: 25, fare: 9200, yq: 1800, deposit: 2000, pushToMarket: 'Yes', route: 'CAN-URC', time: '09.05-14.15' },
-            { id: 3, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-06-06', flight: 'CZ6881', seat: 25, fare: 8800, yq: 1650, deposit: 2000, pushToMarket: 'Yes', route: 'URC-CAN', time: '16.45-21.55' },
-            { id: 4, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-06-06', flight: 'CZ3035', seat: 25, fare: 7500, yq: 1400, deposit: 2000, pushToMarket: 'Yes', route: 'CAN-BKK', time: '23.35-01.30+1' },
+            // First PNR - China Urumqi Route 4 segments (30 May 25 departure) - Total fare: ฿34,000 + ฿6,350 tax
+            { id: 1, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-05-30', flight: 'CZ3036', seat: 25, fare: 34000, yq: 6350, deposit: 2000, pushToMarket: 'Yes', route: 'BKK-CAN', time: '03.00-07.00' },
+            { id: 2, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-05-30', flight: 'CZ6900', seat: 25, fare: 34000, yq: 6350, deposit: 2000, pushToMarket: 'Yes', route: 'CAN-URC', time: '09.05-14.15' },
+            { id: 3, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-06-06', flight: 'CZ6881', seat: 25, fare: 34000, yq: 6350, deposit: 2000, pushToMarket: 'Yes', route: 'URC-CAN', time: '16.45-21.55' },
+            { id: 4, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-06-06', flight: 'CZ3035', seat: 25, fare: 34000, yq: 6350, deposit: 2000, pushToMarket: 'Yes', route: 'CAN-BKK', time: '23.35-01.30+1' },
             
-            // Second PNR - China Urumqi Route 4 segments (2 Jun 25 departure)
-            { id: 5, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-02', flight: 'CZ3036', seat: 30, fare: 8500, yq: 1500, deposit: 1800, pushToMarket: 'No', route: 'BKK-CAN', time: '03.00-07.00' },
-            { id: 6, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-02', flight: 'CZ6900', seat: 30, fare: 9200, yq: 1800, deposit: 1800, pushToMarket: 'No', route: 'CAN-URC', time: '09.05-14.15' },
-            { id: 7, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-09', flight: 'CZ6881', seat: 30, fare: 8800, yq: 1650, deposit: 1800, pushToMarket: 'No', route: 'URC-CAN', time: '16.45-21.55' },
-            { id: 8, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-09', flight: 'CZ3035', seat: 30, fare: 7500, yq: 1400, deposit: 1800, pushToMarket: 'No', route: 'CAN-BKK', time: '23.35-01.30+1' },
+            // Second PNR - China Urumqi Route 4 segments (2 Jun 25 departure) - Total fare: ฿33,000 + ฿6,350 tax
+            { id: 5, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-02', flight: 'CZ3036', seat: 30, fare: 33000, yq: 6350, deposit: 1800, pushToMarket: 'No', route: 'BKK-CAN', time: '03.00-07.00' },
+            { id: 6, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-02', flight: 'CZ6900', seat: 30, fare: 33000, yq: 6350, deposit: 1800, pushToMarket: 'No', route: 'CAN-URC', time: '09.05-14.15' },
+            { id: 7, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-09', flight: 'CZ6881', seat: 30, fare: 33000, yq: 6350, deposit: 1800, pushToMarket: 'No', route: 'URC-CAN', time: '16.45-21.55' },
+            { id: 8, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-09', flight: 'CZ3035', seat: 30, fare: 33000, yq: 6350, deposit: 1800, pushToMarket: 'No', route: 'CAN-BKK', time: '23.35-01.30+1' },
             
-            // Third PNR - Europe Summer Route 3 segments
-            { id: 9, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-20', flight: 'AF165', seat: 50, fare: 12500, yq: 3500, deposit: 3000, pushToMarket: 'Yes', route: 'BKK-CDG', time: '11.30-17.45' },
-            { id: 10, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-22', flight: 'LH773', seat: 50, fare: 13000, yq: 3800, deposit: 3000, pushToMarket: 'Yes', route: 'CDG-FRA', time: '08.15-09.45' },
-            { id: 11, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-30', flight: 'TG931', seat: 50, fare: 14500, yq: 4200, deposit: 3000, pushToMarket: 'Yes', route: 'FRA-BKK', time: '22.15-13.45+1' },
+            // Third PNR - Europe Summer Route 3 segments - Total fare: ฿40,000 + ฿11,500 tax
+            { id: 9, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-20', flight: 'AF165', seat: 50, fare: 40000, yq: 11500, deposit: 3000, pushToMarket: 'Yes', route: 'BKK-CDG', time: '11.30-17.45' },
+            { id: 10, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-22', flight: 'LH773', seat: 50, fare: 40000, yq: 11500, deposit: 3000, pushToMarket: 'Yes', route: 'CDG-FRA', time: '08.15-09.45' },
+            { id: 11, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-30', flight: 'TG931', seat: 50, fare: 40000, yq: 11500, deposit: 3000, pushToMarket: 'Yes', route: 'FRA-BKK', time: '22.15-13.45+1' },
             
-            // Fourth PNR - US West Coast Route 2 segments  
-            { id: 12, groupCode: 'USWEST05', pnr: 'JKL012', departureDate: '2025-09-01', flight: 'UA838', seat: 15, fare: 15000, yq: 4500, deposit: 5000, pushToMarket: 'Yes', route: 'BKK-LAX', time: '14.20-10.30+1' },
-            { id: 13, groupCode: 'USWEST05', pnr: 'JKL012', departureDate: '2025-09-02', flight: 'UA1205', seat: 15, fare: 12000, yq: 3200, deposit: 5000, pushToMarket: 'Yes', route: 'LAX-SFO', time: '13.45-15.20' },
+            // Fourth PNR - US West Coast Route 2 segments - Total fare: ฿27,000 + ฿7,700 tax
+            { id: 12, groupCode: 'USWEST05', pnr: 'JKL012', departureDate: '2025-09-01', flight: 'UA838', seat: 15, fare: 27000, yq: 7700, deposit: 5000, pushToMarket: 'Yes', route: 'BKK-LAX', time: '14.20-10.30+1' },
+            { id: 13, groupCode: 'USWEST05', pnr: 'JKL012', departureDate: '2025-09-02', flight: 'UA1205', seat: 15, fare: 27000, yq: 7700, deposit: 5000, pushToMarket: 'Yes', route: 'LAX-SFO', time: '13.45-15.20' },
             
-            // Fifth PNR - Japan Route 2 segments
-            { id: 14, groupCode: 'BKKJAP01', pnr: 'MNO345', departureDate: '2025-08-15', flight: 'TG640', seat: 35, fare: 8500, yq: 2100, deposit: 2500, pushToMarket: 'Yes', route: 'BKK-NRT', time: '09.00-17.30' },
-            { id: 15, groupCode: 'BKKJAP01', pnr: 'MNO345', departureDate: '2025-08-22', flight: 'NH850', seat: 35, fare: 9200, yq: 2300, deposit: 2500, pushToMarket: 'Yes', route: 'NRT-BKK', time: '18.45-23.15' },
+            // Fifth PNR - Japan Route 2 segments - Total fare: ฿17,700 + ฿4,400 tax
+            { id: 14, groupCode: 'BKKJAP01', pnr: 'MNO345', departureDate: '2025-08-15', flight: 'TG640', seat: 35, fare: 17700, yq: 4400, deposit: 2500, pushToMarket: 'Yes', route: 'BKK-NRT', time: '09.00-17.30' },
+            { id: 15, groupCode: 'BKKJAP01', pnr: 'MNO345', departureDate: '2025-08-22', flight: 'NH850', seat: 35, fare: 17700, yq: 4400, deposit: 2500, pushToMarket: 'Yes', route: 'NRT-BKK', time: '18.45-23.15' },
             
-            // Sixth PNR - Australia Route 2 segments
-            { id: 16, groupCode: 'AUSDOWNU', pnr: 'PQR678', departureDate: '2025-10-05', flight: 'QF24', seat: 40, fare: 16500, yq: 5200, deposit: 4000, pushToMarket: 'No', route: 'BKK-SYD', time: '23.35-11.50+1' },
-            { id: 17, groupCode: 'AUSDOWNU', pnr: 'PQR678', departureDate: '2025-10-15', flight: 'TG476', seat: 40, fare: 17200, yq: 5500, deposit: 4000, pushToMarket: 'No', route: 'SYD-BKK', time: '13.20-18.45' },
+            // Sixth PNR - Australia Route 2 segments - Total fare: ฿33,700 + ฿10,700 tax
+            { id: 16, groupCode: 'AUSDOWNU', pnr: 'PQR678', departureDate: '2025-10-05', flight: 'QF24', seat: 40, fare: 33700, yq: 10700, deposit: 4000, pushToMarket: 'No', route: 'BKK-SYD', time: '23.35-11.50+1' },
+            { id: 17, groupCode: 'AUSDOWNU', pnr: 'PQR678', departureDate: '2025-10-15', flight: 'TG476', seat: 40, fare: 33700, yq: 10700, deposit: 4000, pushToMarket: 'No', route: 'SYD-BKK', time: '13.20-18.45' },
         ];
 
 
@@ -423,6 +549,7 @@
                 width: 180, 
                 minWidth: 160,
                 editable: true, 
+                cellEditor: 'agTextCellEditor',
                 filter: 'agTextColumnFilter',
                 headerTooltip: 'User input - Group identification code',
                 cellStyle: { 
@@ -430,7 +557,8 @@
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     fontWeight: '600',
-                    fontSize: '14px'
+                    fontSize: '14px',
+                    cursor: 'text'
                 }
             },
             // 2. PNR (user input) - each PNR contains 2-4 flights
@@ -441,8 +569,12 @@
                 width: 160, 
                 minWidth: 140,
                 editable: true, 
+                cellEditor: 'agTextCellEditor',
+                cellEditorParams: {
+                    maxLength: 10
+                },
                 filter: 'agTextColumnFilter',
-                headerTooltip: 'User input - Passenger Name Record (2-4 flights per PNR)',
+                headerTooltip: 'User input - Passenger Name Record (2-4 flights per PNR). Click to edit.',
                 cellRenderer: (params) => {
                     if (!params.data || !params.data.pnr) return '';
                     
@@ -456,9 +588,9 @@
                         const isNewGroup = currentIndex > 0 && rowData[currentIndex - 1].pnr !== currentPNR;
                         const ticketIcon = '🎫';
                         
-                        return `<div style="font-weight: 700; color: #1f2937; font-size: 15px; height: 100%; display: flex; align-items: center; gap: 8px;">
+                        return `<div style="font-weight: 700; color: #1f2937; font-size: 15px; height: 100%; display: flex; align-items: center; gap: 8px; cursor: text;">
                                     <span style="font-size: 18px;">${ticketIcon}</span>
-                                    <span>${currentPNR}</span>
+                                    <span style="cursor: text;">${currentPNR}</span>
                                 </div>`;
                     } else {
                         return ''; // Not the first occurrence, return empty
@@ -467,7 +599,8 @@
                 cellStyle: { 
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    cursor: 'text'
                 }
             },
             // 3. Date (user input)
@@ -477,12 +610,23 @@
                 width: 180, 
                 minWidth: 160,
                 editable: true, 
+                cellEditor: 'agDateCellEditor',
+                cellEditorParams: {
+                    min: '2025-01-01',
+                    max: '2026-12-31'
+                },
                 filter: 'agDateColumnFilter',
-                headerTooltip: 'User input - Flight departure date',
+                headerTooltip: 'User input - Flight departure date (click to open date picker)',
                 cellStyle: { 
                     textAlign: 'center',
                     fontWeight: '500',
-                    fontSize: '14px'
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                },
+                valueFormatter: (params) => {
+                    if (!params.value) return '';
+                    const date = new Date(params.value);
+                    return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
                 }
             },
             // 4. Flight (user input)
@@ -492,6 +636,10 @@
                 width: 170, 
                 minWidth: 150,
                 editable: true, 
+                cellEditor: 'agTextCellEditor',
+                cellEditorParams: {
+                    maxLength: 8
+                },
                 filter: 'agTextColumnFilter',
                 headerTooltip: 'User input - Flight number. Click refresh button to fetch details from Amadeus',
                 cellRenderer: (params) => {
@@ -560,98 +708,174 @@
                     fontSize: '14px'
                 }
             },
-            // 8. FARE (user input)
+            // 8. FARE (user input - PNR grouped)
             { 
-                headerName: 'Fare', 
+                headerName: 'Fare (PNR)', 
                 field: 'fare', 
                 width: 150, 
                 minWidth: 130,
                 editable: true, 
                 type: 'numericColumn', 
-                valueFormatter: params => `฿${params.value.toLocaleString()}`, 
+                valueGetter: params => getPNRFare(params, 'fare'),
+                valueSetter: params => setPNRFare(params, 'fare'),
+                valueFormatter: params => params.value ? `฿${params.value.toLocaleString()}` : '', 
                 filter: 'agNumberColumnFilter',
-                headerTooltip: 'User input - Base fare amount',
-                cellStyle: { 
-                    textAlign: 'right',
-                    paddingRight: '16px',
-                    fontWeight: '500',
-                    fontSize: '14px'
+                headerTooltip: 'User input - Total fare amount for entire PNR journey (editable only on first flight)',
+                cellStyle: params => {
+                    const style = { 
+                        textAlign: 'right',
+                        paddingRight: '16px',
+                        fontWeight: '500',
+                        fontSize: '14px'
+                    };
+                    
+                    // Check if this is the first flight of the PNR
+                    if (!params.data || !params.data.pnr) return style;
+                    const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+                    const firstOccurrence = rowData.findIndex(row => row.pnr === params.data.pnr);
+                    
+                    if (firstOccurrence !== currentIndex) {
+                        style.color = '#9ca3af'; // Gray out non-first occurrences
+                        style.fontStyle = 'italic';
+                    }
+                    
+                    return style;
                 }
             },
-            // 9. YQ (user input)
+            // 9. YQ/Tax (user input - PNR grouped)
             { 
-                headerName: 'YQ/Tax', 
+                headerName: 'YQ/Tax (PNR)', 
                 field: 'yq', 
                 width: 150, 
                 minWidth: 130,
                 editable: true, 
                 type: 'numericColumn', 
-                valueFormatter: params => `฿${params.value.toLocaleString()}`, 
+                valueGetter: params => getPNRFare(params, 'yq'),
+                valueSetter: params => setPNRFare(params, 'yq'),
+                valueFormatter: params => params.value ? `฿${params.value.toLocaleString()}` : '', 
                 filter: 'agNumberColumnFilter',
-                headerTooltip: 'User input - Fuel surcharge and taxes',
-                cellStyle: { 
-                    textAlign: 'right',
-                    paddingRight: '16px',
-                    fontWeight: '500',
-                    fontSize: '14px'
+                headerTooltip: 'User input - Total fuel surcharge and taxes for entire PNR journey (editable only on first flight)',
+                cellStyle: params => {
+                    const style = { 
+                        textAlign: 'right',
+                        paddingRight: '16px',
+                        fontWeight: '500',
+                        fontSize: '14px'
+                    };
+                    
+                    // Check if this is the first flight of the PNR
+                    if (!params.data || !params.data.pnr) return style;
+                    const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+                    const firstOccurrence = rowData.findIndex(row => row.pnr === params.data.pnr);
+                    
+                    if (firstOccurrence !== currentIndex) {
+                        style.color = '#9ca3af'; // Gray out non-first occurrences
+                        style.fontStyle = 'italic';
+                    }
+                    
+                    return style;
                 }
             },
-            // 10. Total Fare (auto calculated)
+            // 10. Total Fare (auto calculated - PNR grouped)
             { 
-                headerName: 'Total Fare', 
+                headerName: 'Total Fare (PNR)', 
                 width: 160,
                 minWidth: 140,
                 editable: false,
-                valueGetter: 'Number(data.fare) + Number(data.yq)',
-                valueFormatter: params => `฿${params.value.toLocaleString()}`,
+                valueGetter: params => getPNRTotalFare(params),
+                valueFormatter: params => params.value ? `฿${params.value.toLocaleString()}` : '',
                 type: 'numericColumn',
-                cellStyle: { 
-                    fontWeight: '700', 
-                    backgroundColor: '#f8fafc',
-                    textAlign: 'right',
-                    paddingRight: '16px',
-                    fontSize: '14px',
-                    color: '#1f2937'
+                cellStyle: params => {
+                    const style = { 
+                        fontWeight: '700', 
+                        backgroundColor: '#f8fafc',
+                        textAlign: 'right',
+                        paddingRight: '16px',
+                        fontSize: '14px',
+                        color: '#1f2937'
+                    };
+                    
+                    // Check if this is the first flight of the PNR
+                    if (!params.data || !params.data.pnr) return style;
+                    const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+                    const firstOccurrence = rowData.findIndex(row => row.pnr === params.data.pnr);
+                    
+                    if (firstOccurrence !== currentIndex) {
+                        style.color = '#9ca3af'; // Gray out non-first occurrences
+                        style.fontStyle = 'italic';
+                    }
+                    
+                    return style;
                 },
-                headerTooltip: 'Auto calculated - Sum of Fare + YQ/Tax',
+                headerTooltip: 'Auto calculated - Sum of PNR Fare + YQ/Tax (shown only on first flight)',
                 filter: 'agNumberColumnFilter'
             },
-            // 11. Deposit (user input)
+            // 11. Deposit (user input - PNR grouped)
             { 
-                headerName: 'Deposit', 
+                headerName: 'Deposit (PNR)', 
                 field: 'deposit', 
                 width: 150, 
                 minWidth: 130,
                 editable: true, 
                 type: 'numericColumn', 
-                valueFormatter: params => `฿${params.value.toLocaleString()}`, 
+                valueGetter: params => getPNRFare(params, 'deposit'),
+                valueSetter: params => setPNRFare(params, 'deposit'),
+                valueFormatter: params => params.value ? `฿${params.value.toLocaleString()}` : '', 
                 filter: 'agNumberColumnFilter',
-                headerTooltip: 'User input - Deposit amount per seat',
-                cellStyle: { 
-                    textAlign: 'right',
-                    paddingRight: '16px',
-                    fontWeight: '500',
-                    fontSize: '14px'
+                headerTooltip: 'User input - Deposit amount per seat for entire PNR (editable only on first flight)',
+                cellStyle: params => {
+                    const style = { 
+                        textAlign: 'right',
+                        paddingRight: '16px',
+                        fontWeight: '500',
+                        fontSize: '14px'
+                    };
+                    
+                    // Check if this is the first flight of the PNR
+                    if (!params.data || !params.data.pnr) return style;
+                    const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+                    const firstOccurrence = rowData.findIndex(row => row.pnr === params.data.pnr);
+                    
+                    if (firstOccurrence !== currentIndex) {
+                        style.color = '#9ca3af'; // Gray out non-first occurrences
+                        style.fontStyle = 'italic';
+                    }
+                    
+                    return style;
                 }
             },
-            // 12. Total Deposit (auto calculated)
+            // 12. Total Deposit (auto calculated - PNR grouped)
             { 
-                headerName: 'Total Deposit', 
+                headerName: 'Total Deposit (PNR)', 
                 width: 170,
                 minWidth: 150,
                 editable: false,
-                valueGetter: 'Number(data.seat) * Number(data.deposit)',
-                valueFormatter: params => `฿${params.value.toLocaleString()}`,
+                valueGetter: params => getPNRTotalDeposit(params),
+                valueFormatter: params => params.value ? `฿${params.value.toLocaleString()}` : '',
                 type: 'numericColumn',
-                cellStyle: { 
-                    fontWeight: '700', 
-                    backgroundColor: '#ecfdf5',
-                    textAlign: 'right',
-                    paddingRight: '16px',
-                    fontSize: '14px',
-                    color: '#1f2937'
+                cellStyle: params => {
+                    const style = { 
+                        fontWeight: '700', 
+                        backgroundColor: '#ecfdf5',
+                        textAlign: 'right',
+                        paddingRight: '16px',
+                        fontSize: '14px',
+                        color: '#1f2937'
+                    };
+                    
+                    // Check if this is the first flight of the PNR
+                    if (!params.data || !params.data.pnr) return style;
+                    const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+                    const firstOccurrence = rowData.findIndex(row => row.pnr === params.data.pnr);
+                    
+                    if (firstOccurrence !== currentIndex) {
+                        style.color = '#9ca3af'; // Gray out non-first occurrences
+                        style.fontStyle = 'italic';
+                    }
+                    
+                    return style;
                 },
-                headerTooltip: 'Auto calculated - Seats × Deposit',
+                headerTooltip: 'Auto calculated - Seats × Deposit per seat (shown only on first flight)',
                 filter: 'agNumberColumnFilter'
             },
             // 13. Push to market (binary choice)
