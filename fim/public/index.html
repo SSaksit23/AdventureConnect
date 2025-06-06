@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Inventory Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        :root {
+            --row-height: 65px;
+        }
+        
+        .ag-theme-alpine {
+            --ag-header-background-color: #f8fafc;
+            --ag-header-foreground-color: #020617;
+            --ag-font-family: 'Inter', sans-serif;
+            --ag-odd-row-background-color: #f8fafc;
+            --ag-row-hover-color: #f1f5f9;
+            --ag-cell-horizontal-padding: 16px;
+            --ag-border-color: #e2e8f0;
+            --ag-row-height: var(--row-height);
+            --ag-header-height: 70px;
+            --ag-font-size: 14px;
+            --ag-cell-vertical-padding: 12px;
+        }
+        
+        .ag-cell {
+            display: flex !important;
+            align-items: center !important;
+            line-height: 1.6 !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            padding: 12px 16px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+        }
+        
+        .ag-cell-wrapper {
+            height: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+        
+        .ag-row {
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
+        .ag-header-cell-label {
+            font-weight: 600;
+        }
+        .deadline-near {
+            background-color: #fef9c3 !important; /* Yellow-100 */
+            color: #713f12;
+        }
+        .deadline-urgent {
+            background-color: #fee2e2 !important; /* Red-100 */
+            color: #991b1b;
+        }
+        .custom-button {
+            transition: all 0.2s ease-in-out;
+        }
+        .custom-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        
+        /* Row Height Slider Styling */
+        #row-height-slider::-webkit-slider-thumb {
+            appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        #row-height-slider::-moz-range-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-slate-800">Flight Inventory Management</h1>
+            <p class="text-slate-500 mt-1">An interactive grid for managing air ticket groups and PNRs. Each PNR contains 2-4 flights with automatic calculations.</p>
+            <div class="mt-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
+                <p class="text-sm text-blue-700">
+                    <strong>Data Sources:</strong> 
+                    <span class="text-green-600">User Input</span> - Group Code, PNR, Date, Flight, Seats, Fare, YQ/Tax | 
+                    <span class="text-blue-600">Amadeus API</span> - Time, Route | 
+                    <span class="text-purple-600">Auto Calculated</span> - Total Fare, Issue Date, Deadlines
+                </p>
+            </div>
+        </header>
+
+        <!-- Toolbar -->
+        <div class="flex items-center space-x-2 mb-4 bg-white p-3 rounded-lg shadow-sm border border-slate-200">
+            <button onclick="onBtnExport()" class="custom-button bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-file-excel mr-2"></i>Export to Excel</button>
+            <button onclick="alert('Import functionality would be implemented in the backend.')" class="custom-button bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-file-import mr-2"></i>Import</button>
+            <button onclick="refreshAmadeusData()" class="custom-button bg-sky-500 hover:bg-sky-600 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-sync-alt mr-2"></i>Refresh from Amadeus</button>
+            
+            <!-- New buttons for add and filter reset -->
+            <div class="h-8 w-px bg-slate-300"></div>
+            <button onclick="addNewRecord()" class="custom-button bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-plus mr-2"></i>Add New</button>
+            <button onclick="deleteSelectedRows()" class="custom-button bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-trash mr-2"></i>Delete Selected</button>
+            <button onclick="resetFilters()" class="custom-button bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-filter mr-2"></i>Reset Filter</button>
+            
+            <!-- Row Height Control -->
+            <div class="h-8 w-px bg-slate-300"></div>
+            <div class="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-md border border-slate-200">
+                <i class="fas fa-arrows-alt-v text-slate-500"></i>
+                <label for="row-height-slider" class="text-sm font-medium text-slate-700 whitespace-nowrap">Row Height:</label>
+                <input type="range" id="row-height-slider" min="45" max="90" value="65" step="5" 
+                       onchange="adjustRowHeight(this.value)" 
+                       class="w-20 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                <span id="row-height-value" class="text-sm font-semibold text-slate-600 w-8 text-center">65px</span>
+            </div>
+            
+             <div class="flex-grow"></div>
+            <div class="relative">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" id="filter-text-box" placeholder="Search grid..." oninput="onFilterTextBoxChanged()" class="w-64 pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none">
+                <button onclick="clearSearchBox()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" title="Clear search">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- The AG Grid element -->
+        <div id="myGrid" class="ag-theme-alpine w-full h-[600px] shadow-lg border border-slate-200 rounded-lg"></div>
+
+        <!-- Amadeus API Info -->
+        <div class="mt-6 p-4 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-600">
+            <h3 class="font-bold text-slate-800 mb-2">Amadeus API Information (Test Environment)</h3>
+            <p><span class="font-semibold">Base URL:</span> test.api.amadeus.com</p>
+            <p><span class="font-semibold">API Key:</span> Bd76Z...OM07 <span class="text-slate-400 font-normal italic">(Note: Keys should be stored securely on the backend in a production environment)</span></p>
+        </div>
+    </div>
+
+    <script>
+        // ======= UTILITY FUNCTIONS =======
+        
+        // Helper to format dates as YYYY-MM-DD
+        const formatDate = (date) => {
+            if (!date) return '';
+            return date.toISOString().split('T')[0];
+        };
+
+        // Function to fetch real flight details from Amadeus API
+        const fetchFlightDetailsFromAmadeus = async (flightNumber, departureDate) => {
+            try {
+                // In a real implementation, this would call the Amadeus API
+                // For demo purposes, we'll simulate the API call
+                showToast("Fetching flight details from Amadeus API...", 'info');
+                
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Mock response from Amadeus API
+                const mockApiResponse = {
+                    'CZ3036': { route: 'BKK-CAN', time: '03.00-07.00', aircraft: 'A320' },
+                    'CZ6900': { route: 'CAN-URC', time: '09.05-14.15', aircraft: 'A321' },
+                    'CZ6881': { route: 'URC-CAN', time: '16.45-21.55', aircraft: 'A321' },
+                    'CZ3035': { route: 'CAN-BKK', time: '23.35-01.30+1', aircraft: 'A320' },
+                    'AF165': { route: 'BKK-CDG', time: '11.30-17.45', aircraft: 'B777' },
+                    'LH773': { route: 'CDG-FRA', time: '08.15-09.45', aircraft: 'A320' },
+                    'UA838': { route: 'BKK-LAX', time: '14.20-10.30+1', aircraft: 'B787' },
+                    'UA1205': { route: 'LAX-SFO', time: '13.45-15.20', aircraft: 'B737' }
+                };
+                
+                const flightData = mockApiResponse[flightNumber] || { 
+                    route: 'UNKNOWN', 
+                    time: 'TBA', 
+                    aircraft: 'TBA' 
+                };
+                
+                showToast(`Flight ${flightNumber} details updated from Amadeus!`, 'success');
+                return flightData;
+                
+            } catch (error) {
+                showToast("Error fetching from Amadeus API", 'error');
+                console.error('Amadeus API Error:', error);
+                return null;
+            }
+        };
+
+        // Function to determine if PNR should be displayed (only on first occurrence)
+        const shouldShowPNR = (params) => {
+            if (!params.data || !params.data.pnr) return '';
+            
+            const currentPNR = params.data.pnr;
+            const currentRowIndex = params.node.rowIndex;
+            
+            // Check if this is the first occurrence of this PNR in the data
+            const firstOccurrence = rowData.findIndex(row => row.pnr === currentPNR);
+            const actualIndex = rowData.findIndex(row => row.id === params.data.id);
+            
+            if (firstOccurrence === actualIndex) {
+                return currentPNR; // First occurrence, show the PNR
+            }
+            return ''; // Not the first occurrence, return empty
+        };
+
+        // Function to add spacing between different PNRs
+        const getRowStyle = (params) => {
+            if (!params.data || !params.data.pnr) return null;
+            
+            const currentPNR = params.data.pnr;
+            const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+            
+            // Check if this is the first row of a new PNR group
+            if (currentIndex > 0) {
+                const previousPNR = rowData[currentIndex - 1].pnr;
+                if (previousPNR !== currentPNR) {
+                    return { 
+                        borderTop: '3px solid #cbd5e1'
+                        // Removed paddingTop to prevent interference with row height
+                    };
+                }
+            }
+            return null;
+        };
+
+        // Date calculation logic - only for the first flight of each PNR
+        const calculateDates = (departureDateStr) => {
+            const departureDate = new Date(departureDateStr);
+            if (isNaN(departureDate.getTime())) {
+                return { issueDate: null, deadline1: null, deadline2: null };
+            }
+
+            const issueDate = new Date(departureDate);
+            issueDate.setDate(departureDate.getDate() - 20);
+
+            const deadline1 = new Date(departureDate);
+            deadline1.setDate(departureDate.getDate() - 60);
+            
+            const deadline2 = new Date(departureDate);
+            deadline2.setDate(departureDate.getDate() - 30);
+
+            return {
+                issueDate: formatDate(issueDate),
+                deadline1: formatDate(deadline1),
+                deadline2: formatDate(deadline2)
+            };
+        };
+
+        // Function to get PNR-based deadlines (only for first flight of each PNR)
+        const getPNRDeadlines = (params, dateType) => {
+            if (!params.data || !params.data.pnr) return '';
+            
+            const currentPNR = params.data.pnr;
+            const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+            const firstOccurrence = rowData.findIndex(row => row.pnr === currentPNR);
+            
+            // Only show deadlines for the first flight of each PNR
+            if (firstOccurrence === currentIndex) {
+                const firstFlightData = rowData[firstOccurrence];
+                const dates = calculateDates(firstFlightData.departureDate);
+                return dates[dateType];
+            }
+            return ''; // Empty for subsequent flights in the same PNR
+        };
+
+        // Custom comparator for PNR-grouped sorting
+        const pnrGroupedComparator = (dateType) => {
+            return (valueA, valueB, nodeA, nodeB) => {
+                const pnrA = nodeA.data.pnr;
+                const pnrB = nodeB.data.pnr;
+                
+                // If same PNR, maintain original order
+                if (pnrA === pnrB) {
+                    return nodeA.data.id - nodeB.data.id;
+                }
+                
+                // Different PNRs - compare by deadline of first flight in each PNR
+                const firstFlightA = rowData.find(row => row.pnr === pnrA);
+                const firstFlightB = rowData.find(row => row.pnr === pnrB);
+                
+                const datesA = calculateDates(firstFlightA.departureDate);
+                const datesB = calculateDates(firstFlightB.departureDate);
+                
+                const dateA = new Date(datesA[dateType] || '1900-01-01');
+                const dateB = new Date(datesB[dateType] || '1900-01-01');
+                
+                return dateA.getTime() - dateB.getTime();
+            };
+        };
+        
+        // Conditional formatting for deadlines
+        const deadlineCellStyle = (params) => {
+            if(!params.value) return null;
+            const deadlineDate = new Date(params.value);
+            const today = new Date();
+            today.setHours(0,0,0,0); // Compare dates only
+            const timeDiff = deadlineDate.getTime() - today.getTime();
+            const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+            if (dayDiff < 0) {
+                return { backgroundColor: '#fecaca', color: '#991b1b' }; // Overdue (red)
+            } else if (dayDiff <= 7) {
+                return { backgroundColor: '#fee2e2', color: '#991b1b' }; // Urgent (light red)
+            } else if (dayDiff <= 30) {
+                return { backgroundColor: '#fef9c3', color: '#713f12' }; // Near (yellow)
+            }
+            return null; // Default style
+        };
+        
+        // ======= MOCK DATA =======
+        // In a real app, this would come from a database.
+        // Based on the flight table provided - showing multi-segment journeys
+        let rowData = [
+            // First PNR - China Urumqi Route 4 segments (30 May 25 departure)
+            { id: 1, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-05-30', flight: 'CZ3036', seat: 25, fare: 8500, yq: 1500, deposit: 2000, pushToMarket: 'Yes', route: 'BKK-CAN', time: '03.00-07.00' },
+            { id: 2, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-05-30', flight: 'CZ6900', seat: 25, fare: 9200, yq: 1800, deposit: 2000, pushToMarket: 'Yes', route: 'CAN-URC', time: '09.05-14.15' },
+            { id: 3, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-06-06', flight: 'CZ6881', seat: 25, fare: 8800, yq: 1650, deposit: 2000, pushToMarket: 'Yes', route: 'URC-CAN', time: '16.45-21.55' },
+            { id: 4, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-06-06', flight: 'CZ3035', seat: 25, fare: 7500, yq: 1400, deposit: 2000, pushToMarket: 'Yes', route: 'CAN-BKK', time: '23.35-01.30+1' },
+            
+            // Second PNR - China Urumqi Route 4 segments (2 Jun 25 departure)
+            { id: 5, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-02', flight: 'CZ3036', seat: 30, fare: 8500, yq: 1500, deposit: 1800, pushToMarket: 'No', route: 'BKK-CAN', time: '03.00-07.00' },
+            { id: 6, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-02', flight: 'CZ6900', seat: 30, fare: 9200, yq: 1800, deposit: 1800, pushToMarket: 'No', route: 'CAN-URC', time: '09.05-14.15' },
+            { id: 7, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-09', flight: 'CZ6881', seat: 30, fare: 8800, yq: 1650, deposit: 1800, pushToMarket: 'No', route: 'URC-CAN', time: '16.45-21.55' },
+            { id: 8, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-09', flight: 'CZ3035', seat: 30, fare: 7500, yq: 1400, deposit: 1800, pushToMarket: 'No', route: 'CAN-BKK', time: '23.35-01.30+1' },
+            
+            // Third PNR - Europe Summer Route 3 segments
+            { id: 9, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-20', flight: 'AF165', seat: 50, fare: 12500, yq: 3500, deposit: 3000, pushToMarket: 'Yes', route: 'BKK-CDG', time: '11.30-17.45' },
+            { id: 10, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-22', flight: 'LH773', seat: 50, fare: 13000, yq: 3800, deposit: 3000, pushToMarket: 'Yes', route: 'CDG-FRA', time: '08.15-09.45' },
+            { id: 11, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-30', flight: 'TG931', seat: 50, fare: 14500, yq: 4200, deposit: 3000, pushToMarket: 'Yes', route: 'FRA-BKK', time: '22.15-13.45+1' },
+            
+            // Fourth PNR - US West Coast Route 2 segments  
+            { id: 12, groupCode: 'USWEST05', pnr: 'JKL012', departureDate: '2025-09-01', flight: 'UA838', seat: 15, fare: 15000, yq: 4500, deposit: 5000, pushToMarket: 'Yes', route: 'BKK-LAX', time: '14.20-10.30+1' },
+            { id: 13, groupCode: 'USWEST05', pnr: 'JKL012', departureDate: '2025-09-02', flight: 'UA1205', seat: 15, fare: 12000, yq: 3200, deposit: 5000, pushToMarket: 'Yes', route: 'LAX-SFO', time: '13.45-15.20' },
+            
+            // Fifth PNR - Japan Route 2 segments
+            { id: 14, groupCode: 'BKKJAP01', pnr: 'MNO345', departureDate: '2025-08-15', flight: 'TG640', seat: 35, fare: 8500, yq: 2100, deposit: 2500, pushToMarket: 'Yes', route: 'BKK-NRT', time: '09.00-17.30' },
+            { id: 15, groupCode: 'BKKJAP01', pnr: 'MNO345', departureDate: '2025-08-22', flight: 'NH850', seat: 35, fare: 9200, yq: 2300, deposit: 2500, pushToMarket: 'Yes', route: 'NRT-BKK', time: '18.45-23.15' },
+            
+            // Sixth PNR - Australia Route 2 segments
+            { id: 16, groupCode: 'AUSDOWNU', pnr: 'PQR678', departureDate: '2025-10-05', flight: 'QF24', seat: 40, fare: 16500, yq: 5200, deposit: 4000, pushToMarket: 'No', route: 'BKK-SYD', time: '23.35-11.50+1' },
+            { id: 17, groupCode: 'AUSDOWNU', pnr: 'PQR678', departureDate: '2025-10-15', flight: 'TG476', seat: 40, fare: 17200, yq: 5500, deposit: 4000, pushToMarket: 'No', route: 'SYD-BKK', time: '13.20-18.45' },
+        ];
+
+
+                // ======= AG-GRID COLUMN DEFINITIONS =======
+        const columnDefs = [
+            // Following the exact order requested by the user
+            // 1. Group Code (user input)
+            { 
+                headerName: 'Group Code', 
+                field: 'groupCode', 
+                pinned: 'left', 
+                width: 180, 
+                minWidth: 160,
+                editable: true, 
+                filter: 'agTextColumnFilter',
+                headerTooltip: 'User input - Group identification code',
+                cellStyle: { 
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    fontWeight: '600',
+                    fontSize: '14px'
+                }
+            },
+            // 2. PNR (user input) - each PNR contains 2-4 flights
+            { 
+                headerName: 'PNR', 
+                field: 'pnr', 
+                pinned: 'left', 
+                width: 160, 
+                minWidth: 140,
+                editable: true, 
+                filter: 'agTextColumnFilter',
+                headerTooltip: 'User input - Passenger Name Record (2-4 flights per PNR)',
+                cellRenderer: (params) => {
+                    if (!params.data || !params.data.pnr) return '';
+                    
+                    // Check if this is the first occurrence of this PNR
+                    const currentPNR = params.data.pnr;
+                    const currentIndex = rowData.findIndex(row => row.id === params.data.id);
+                    const firstOccurrence = rowData.findIndex(row => row.pnr === currentPNR);
+                    
+                    if (firstOccurrence === currentIndex) {
+                        // First occurrence - show PNR with potential top border for grouping
+                        const isNewGroup = currentIndex > 0 && rowData[currentIndex - 1].pnr !== currentPNR;
+                        const borderStyle = isNewGroup ? 'border-top: 2px solid #cbd5e1; padding-top: 4px;' : '';
+                        
+                        return `<div style="font-weight: 700; color: #1f2937; font-size: 15px; ${borderStyle} height: 100%; display: flex; align-items: center;">${currentPNR}</div>`;
+                    } else {
+                        return ''; // Not the first occurrence, return empty
+                    }
+                },
+                cellStyle: { 
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden'
+                }
+            },
+            // 3. Date (user input)
+            { 
+                headerName: 'Departure Date', 
+                field: 'departureDate', 
+                width: 180, 
+                minWidth: 160,
+                editable: true, 
+                filter: 'agDateColumnFilter',
+                headerTooltip: 'User input - Flight departure date',
+                cellStyle: { 
+                    textAlign: 'center',
+                    fontWeight: '500',
+                    fontSize: '14px'
+                }
+            },
+            // 4. Flight (user input)
+            { 
+                headerName: 'Flight', 
+                field: 'flight', 
+                width: 170, 
+                minWidth: 150,
+                editable: true, 
+                filter: 'agTextColumnFilter',
+                headerTooltip: 'User input - Flight number. Click refresh button to fetch details from Amadeus',
+                cellRenderer: (params) => {
+                    const flightNumber = params.value || '';
+                    return `
+                        <div style="display: flex; align-items: center; width: 100%; height: 100%; position: relative; padding: 0 8px;">
+                            <span style="font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 24px;">${flightNumber}</span>
+                            <button onclick="updateFlightFromAmadeus('${params.node.id}', '${flightNumber}', '${params.data.departureDate}')" 
+                                    style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; font-size: 14px; border-radius: 4px; transition: all 0.15s ease; opacity: 0.7;"
+                                    onmouseover="this.style.background='#f1f5f9'; this.style.color='#3b82f6'; this.style.opacity='1'; this.style.transform='translateY(-50%) scale(1.1)'"
+                                    onmouseout="this.style.background='none'; this.style.color='#6b7280'; this.style.opacity='0.7'; this.style.transform='translateY(-50%) scale(1)'"
+                                    title="Refresh route & time from Amadeus">
+                                ⟳
+                            </button>
+                        </div>
+                    `;
+                }
+            },
+            // 5. Time (from Amadeus API - not editable)
+            { 
+                headerName: 'Time (Dep-Arr)', 
+                field: 'time', 
+                width: 170, 
+                minWidth: 150,
+                editable: false, 
+                cellStyle: { 
+                    color: '#6b7280', 
+                    fontStyle: 'italic',
+                    textAlign: 'center',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                },
+                headerTooltip: 'From Amadeus API - Departure and arrival times',
+                filter: 'agTextColumnFilter'
+            },
+            // 6. Route (from Amadeus API - not editable)
+            { 
+                headerName: 'Route', 
+                field: 'route', 
+                width: 160, 
+                minWidth: 140,
+                editable: false, 
+                cellStyle: { 
+                    color: '#6b7280', 
+                    fontStyle: 'italic',
+                    textAlign: 'center',
+                    fontWeight: '600',
+                    fontSize: '14px'
+                },
+                headerTooltip: 'From Amadeus API - Flight route',
+                filter: 'agTextColumnFilter'
+            },
+            // 7. SEAT (user input)
+            { 
+                headerName: 'Seats', 
+                field: 'seat', 
+                width: 120, 
+                minWidth: 100,
+                editable: true, 
+                type: 'numericColumn', 
+                filter: 'agNumberColumnFilter',
+                headerTooltip: 'User input - Number of seats',
+                cellStyle: { 
+                    textAlign: 'center',
+                    fontWeight: '600',
+                    fontSize: '14px'
+                }
+            },
+            // 8. FARE (user input)
+            { 
+                headerName: 'Fare', 
+                field: 'fare', 
+                width: 150, 
+                minWidth: 130,
+                editable: true, 
+                type: 'numericColumn', 
+                valueFormatter: params => `฿${params.value.toLocaleString()}`, 
+                filter: 'agNumberColumnFilter',
+                headerTooltip: 'User input - Base fare amount',
+                cellStyle: { 
+                    textAlign: 'right',
+                    paddingRight: '16px',
+                    fontWeight: '500',
+                    fontSize: '14px'
+                }
+            },
+            // 9. YQ (user input)
+            { 
+                headerName: 'YQ/Tax', 
+                field: 'yq', 
+                width: 150, 
+                minWidth: 130,
+                editable: true, 
+                type: 'numericColumn', 
+                valueFormatter: params => `฿${params.value.toLocaleString()}`, 
+                filter: 'agNumberColumnFilter',
+                headerTooltip: 'User input - Fuel surcharge and taxes',
+                cellStyle: { 
+                    textAlign: 'right',
+                    paddingRight: '16px',
+                    fontWeight: '500',
+                    fontSize: '14px'
+                }
+            },
+            // 10. Total Fare (auto calculated)
+            { 
+                headerName: 'Total Fare', 
+                width: 160,
+                minWidth: 140,
+                editable: false,
+                valueGetter: 'Number(data.fare) + Number(data.yq)',
+                valueFormatter: params => `฿${params.value.toLocaleString()}`,
+                type: 'numericColumn',
+                cellStyle: { 
+                    fontWeight: '700', 
+                    backgroundColor: '#f8fafc',
+                    textAlign: 'right',
+                    paddingRight: '16px',
+                    fontSize: '14px',
+                    color: '#1f2937'
+                },
+                headerTooltip: 'Auto calculated - Sum of Fare + YQ/Tax',
+                filter: 'agNumberColumnFilter'
+            },
+            // 11. Deposit (user input)
+            { 
+                headerName: 'Deposit', 
+                field: 'deposit', 
+                width: 150, 
+                minWidth: 130,
+                editable: true, 
+                type: 'numericColumn', 
+                valueFormatter: params => `฿${params.value.toLocaleString()}`, 
+                filter: 'agNumberColumnFilter',
+                headerTooltip: 'User input - Deposit amount per seat',
+                cellStyle: { 
+                    textAlign: 'right',
+                    paddingRight: '16px',
+                    fontWeight: '500',
+                    fontSize: '14px'
+                }
+            },
+            // 12. Total Deposit (auto calculated)
+            { 
+                headerName: 'Total Deposit', 
+                width: 170,
+                minWidth: 150,
+                editable: false,
+                valueGetter: 'Number(data.seat) * Number(data.deposit)',
+                valueFormatter: params => `฿${params.value.toLocaleString()}`,
+                type: 'numericColumn',
+                cellStyle: { 
+                    fontWeight: '700', 
+                    backgroundColor: '#ecfdf5',
+                    textAlign: 'right',
+                    paddingRight: '16px',
+                    fontSize: '14px',
+                    color: '#1f2937'
+                },
+                headerTooltip: 'Auto calculated - Seats × Deposit',
+                filter: 'agNumberColumnFilter'
+            },
+            // 13. Push to market (binary choice)
+            { 
+                headerName: 'Push to Market', 
+                field: 'pushToMarket', 
+                width: 150, 
+                minWidth: 130,
+                editable: true, 
+                cellEditor: 'agSelectCellEditor',
+                cellEditorParams: {
+                    values: ['Yes', 'No']
+                },
+                filter: 'agTextColumnFilter',
+                headerTooltip: 'Binary choice - Yes or No for market distribution',
+                cellStyle: { 
+                    textAlign: 'center',
+                    fontWeight: '500',
+                    fontSize: '14px'
+                }
+            },
+            // 14. Deadlines and Issue date (PNR-grouped: only shown for first flight of each PNR)
+            { 
+                headerName: 'Deadline 1 (-60d)', 
+                width: 160, 
+                minWidth: 140,
+                editable: false,
+                valueGetter: params => getPNRDeadlines(params, 'deadline1'),
+                comparator: pnrGroupedComparator('deadline1'),
+                cellStyle: params => {
+                    if (!params.value) return { textAlign: 'center', fontSize: '13px', fontWeight: '500' };
+                    const style = deadlineCellStyle(params);
+                    return {
+                        ...style,
+                        textAlign: 'center',
+                        fontSize: '13px',
+                        fontWeight: '500'
+                    };
+                },
+                filter: 'agDateColumnFilter',
+                headerTooltip: 'Auto calculated - 60 days before first flight departure (PNR-grouped)'
+            },
+            { 
+                headerName: 'Deadline 2 (-30d)', 
+                width: 160, 
+                minWidth: 140,
+                editable: false,
+                valueGetter: params => getPNRDeadlines(params, 'deadline2'),
+                comparator: pnrGroupedComparator('deadline2'),
+                cellStyle: params => {
+                    if (!params.value) return { textAlign: 'center', fontSize: '13px', fontWeight: '500' };
+                    const style = deadlineCellStyle(params);
+                    return {
+                        ...style,
+                        textAlign: 'center',
+                        fontSize: '13px',
+                        fontWeight: '500'
+                    };
+                },
+                filter: 'agDateColumnFilter',
+                headerTooltip: 'Auto calculated - 30 days before first flight departure (PNR-grouped)'
+            },
+            { 
+                headerName: 'Issue Date (-20d)', 
+                width: 150, 
+                minWidth: 130,
+                editable: false,
+                valueGetter: params => getPNRDeadlines(params, 'issueDate'),
+                comparator: pnrGroupedComparator('issueDate'),
+                cellStyle: params => {
+                    if (!params.value) return { textAlign: 'center', fontSize: '13px', fontWeight: '500' };
+                    const style = deadlineCellStyle(params);
+                    return {
+                        ...style,
+                        textAlign: 'center',
+                        fontSize: '13px',
+                        fontWeight: '500'
+                    };
+                },
+                filter: 'agDateColumnFilter',
+                headerTooltip: 'Auto calculated - 20 days before first flight departure (PNR-grouped)'
+            }
+        ];
+
+        // ======= GRID OPTIONS & INITIALIZATION =======
+        let gridApi; // Store grid API reference globally
+        
+        const gridOptions = {
+            columnDefs: columnDefs,
+            rowData: rowData,
+            getRowId: (params) => params.data.id,
+            rowSelection: 'multiple', // Enable row selection
+            defaultColDef: {
+                sortable: true,
+                resizable: true,
+                filter: true,
+                floatingFilter: true, // Adds the filter row below headers
+                cellStyle: {
+                    padding: '12px 16px',
+                    lineHeight: '1.6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                },
+                autoHeight: false,
+                wrapText: false,
+                suppressSizeToFit: false
+            },
+            // Add spacing between different PNRs - DISABLED to ensure consistent row heights
+            // getRowStyle: getRowStyle,
+            // Enable auto-saving on cell edit
+            onCellValueChanged: function(event) {
+                console.log('Cell value changed:', event.data);
+                // In a real app, this would trigger an API call to the backend to save the data.
+                // e.g., saveRowData(event.data);
+                showToast(`Saved PNR: ${event.data.pnr}`);
+                // Refresh cells to re-calculate dates if departure date was changed
+                if (event.colDef.field === 'departureDate' || event.colDef.field === 'fare' || event.colDef.field === 'yq' || event.colDef.field === 'seat' || event.colDef.field === 'deposit') {
+                   gridApi.refreshCells({ force: true });
+                }
+            },
+            onGridReady: (params) => {
+                gridApi = params.api; // Store the API reference
+                // Just use the defined column widths - they are now properly sized
+                // Allow horizontal scrolling if needed for better data visibility
+                setTimeout(() => {
+                    params.api.refreshCells({ force: true });
+                }, 100);
+            }
+        };
+        
+        // Let's go!
+        document.addEventListener('DOMContentLoaded', () => {
+            const gridDiv = document.querySelector('#myGrid');
+            // FIX: Use createGrid instead of the old constructor
+            agGrid.createGrid(gridDiv, gridOptions);
+        });
+
+        // ======= TOOLBAR FUNCTIONS =======
+        
+        function onFilterTextBoxChanged() {
+            if (gridApi) {
+                gridApi.setQuickFilter(document.getElementById('filter-text-box').value);
+            }
+        }
+
+        function clearSearchBox() {
+            document.getElementById('filter-text-box').value = '';
+            if (gridApi) {
+                gridApi.setQuickFilter('');
+            }
+        }
+
+        function resetFilters() {
+            // Clear search box
+            document.getElementById('filter-text-box').value = '';
+            
+            if (gridApi) {
+                // Clear quick filter
+                gridApi.setQuickFilter('');
+                
+                // Reset all column filters
+                gridApi.setFilterModel(null);
+                
+                // Clear any sorting
+                gridApi.setSortModel(null);
+                
+                showToast("All filters and sorting have been reset", 'success');
+            }
+        }
+
+        function onBtnExport() {
+            if (gridApi) {
+                gridApi.exportDataAsCsv();
+            }
+        }
+
+        function addNewRecord() {
+            if (!gridApi) {
+                showToast("Grid not ready yet, please try again", 'error');
+                return;
+            }
+            
+            // Generate new ID
+            const maxId = Math.max(...rowData.map(row => row.id), 0);
+            const newId = maxId + 1;
+            
+            // Create new empty record with default values
+            const newRecord = {
+                id: newId,
+                groupCode: '',
+                pnr: '',
+                departureDate: new Date().toISOString().split('T')[0], // Today's date
+                flight: '',
+                seat: 0,
+                fare: 0,
+                yq: 0,
+                deposit: 0,
+                pushToMarket: 'Yes',
+                route: '',
+                time: ''
+            };
+            
+            // Add to data array
+            rowData.push(newRecord);
+            
+            // Add to grid
+            const result = gridApi.applyTransaction({ add: [newRecord] });
+            
+            if (result.add && result.add.length > 0) {
+                // Scroll to the new row and focus on it
+                const newRowNode = gridApi.getRowNode(newId);
+                if (newRowNode) {
+                    gridApi.ensureIndexVisible(newRowNode.rowIndex);
+                    // Focus on the Group Code field for the new row
+                    gridApi.setFocusedCell(newRowNode.rowIndex, 'groupCode');
+                    gridApi.startEditingCell({
+                        rowIndex: newRowNode.rowIndex,
+                        colKey: 'groupCode'
+                    });
+                }
+                showToast("New record added! Start entering data.", 'success');
+            } else {
+                showToast("Failed to add new record", 'error');
+            }
+        }
+
+        function deleteSelectedRows() {
+            if (!gridApi) {
+                showToast("Grid not ready yet, please try again", 'error');
+                return;
+            }
+            
+            const selectedRows = gridApi.getSelectedRows();
+            
+            if (selectedRows.length === 0) {
+                showToast("Please select rows to delete", 'error');
+                return;
+            }
+            
+            // Confirm deletion
+            const confirmMessage = `Are you sure you want to delete ${selectedRows.length} record(s)?`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // Remove from data array
+            selectedRows.forEach(row => {
+                const index = rowData.findIndex(r => r.id === row.id);
+                if (index > -1) {
+                    rowData.splice(index, 1);
+                }
+            });
+            
+            // Remove from grid
+            const result = gridApi.applyTransaction({ remove: selectedRows });
+            
+            if (result.remove && result.remove.length > 0) {
+                showToast(`${result.remove.length} record(s) deleted successfully`, 'success');
+            } else {
+                showToast("Failed to delete records", 'error');
+            }
+        }
+
+        function refreshAmadeusData() {
+            // Placeholder for real API call
+            showToast("Fetching latest data from Amadeus...", 'info');
+            // Simulate API latency
+            setTimeout(() => {
+                showToast("Grid updated with latest flight data!", 'success');
+            }, 2000);
+        }
+
+        // Function to update individual flight from Amadeus
+        async function updateFlightFromAmadeus(rowId, flightNumber, departureDate) {
+            if (!flightNumber) {
+                showToast("Please enter a flight number first", 'error');
+                return;
+            }
+            
+            if (!gridApi) {
+                showToast("Grid not ready yet, please try again", 'error');
+                return;
+            }
+            
+            const flightData = await fetchFlightDetailsFromAmadeus(flightNumber, departureDate);
+            if (flightData) {
+                // Update the row data
+                const rowNode = gridApi.getRowNode(rowId);
+                if (rowNode) {
+                    rowNode.setDataValue('route', flightData.route);
+                    rowNode.setDataValue('time', flightData.time);
+                    gridApi.refreshCells({ force: true });
+                } else {
+                    console.error('Row node not found for ID:', rowId);
+                    showToast("Could not find flight record to update", 'error');
+                }
+            }
+        }
+        
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            let bgColor = 'bg-green-500';
+            if (type === 'info') bgColor = 'bg-blue-500';
+            if (type === 'error') bgColor = 'bg-red-500';
+            
+            toast.className = `fixed bottom-5 right-5 text-white py-2 px-5 rounded-lg shadow-xl animate-bounce ${bgColor}`;
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        function adjustRowHeight(value) {
+            // Update the display value
+            document.getElementById('row-height-value').textContent = value + 'px';
+            
+            // Update CSS custom property
+            document.documentElement.style.setProperty('--row-height', value + 'px');
+            
+            // Force grid to recalculate row heights
+            if (gridApi) {
+                gridApi.resetRowHeights();
+                // Also trigger a refresh to ensure proper rendering
+                setTimeout(() => {
+                    gridApi.refreshCells({ force: true });
+                }, 50);
+            }
+            
+            showToast(`Row height adjusted to ${value}px`, 'info');
+        }
+
+    </script>
+  </body>
+</html>
