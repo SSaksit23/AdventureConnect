@@ -50,6 +50,27 @@
         .ag-row {
             border-bottom: 1px solid #e2e8f0 !important;
         }
+        
+        /* Enhanced PNR grouping styles - minimal to avoid row height interference */
+        .ag-row:first-child {
+            border-top: 2px solid #3b82f6 !important;
+        }
+        
+        /* Fix filter row text overflow */
+        .ag-floating-filter-input {
+            font-size: 12px !important;
+            padding: 4px 8px !important;
+        }
+        
+        .ag-floating-filter-input input {
+            font-size: 12px !important;
+        }
+        
+        /* Ensure date filter inputs don't overflow */
+        .ag-date-filter .ag-floating-filter-input {
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
         .ag-header-cell-label {
             font-weight: 600;
         }
@@ -143,12 +164,7 @@
         <!-- The AG Grid element -->
         <div id="myGrid" class="ag-theme-alpine w-full h-[600px] shadow-lg border border-slate-200 rounded-lg"></div>
 
-        <!-- Amadeus API Info -->
-        <div class="mt-6 p-4 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-600">
-            <h3 class="font-bold text-slate-800 mb-2">Amadeus API Information (Test Environment)</h3>
-            <p><span class="font-semibold">Base URL:</span> test.api.amadeus.com</p>
-            <p><span class="font-semibold">API Key:</span> Bd76Z...OM07 <span class="text-slate-400 font-normal italic">(Note: Keys should be stored securely on the backend in a production environment)</span></p>
-        </div>
+
     </div>
 
     <script>
@@ -215,23 +231,40 @@
             return ''; // Not the first occurrence, return empty
         };
 
-        // Function to add spacing between different PNRs
+        // Function to add visual separation between different PNR groups (tickets)
+        // NO margins or padding to avoid interfering with AG Grid row height calculations
         const getRowStyle = (params) => {
             if (!params.data || !params.data.pnr) return null;
             
             const currentPNR = params.data.pnr;
             const currentIndex = rowData.findIndex(row => row.id === params.data.id);
             
-            // Check if this is the first row of a new PNR group
-            if (currentIndex > 0) {
-                const previousPNR = rowData[currentIndex - 1].pnr;
-                if (previousPNR !== currentPNR) {
-                    return { 
-                        borderTop: '3px solid #cbd5e1'
-                        // Removed paddingTop to prevent interference with row height
-                    };
-                }
+            // Add subtle background for better PNR grouping
+            const pnrGroups = ['ABC123', 'DEF456', 'GHI789', 'JKL012', 'MNO345', 'PQR678'];
+            const pnrIndex = pnrGroups.indexOf(currentPNR);
+            
+            if (pnrIndex >= 0) {
+                const colors = [
+                    '#ffffff',      // ABC123 - White
+                    '#f8fafc',      // DEF456 - Slate
+                    '#f0f9ff',      // GHI789 - Sky
+                    '#f7fee7',      // JKL012 - Green  
+                    '#fef3c7',      // MNO345 - Yellow
+                    '#fce7f3'       // PQR678 - Pink
+                ];
+                
+                // Check if this is the first row of a new PNR group
+                const isFirstOfGroup = currentIndex > 0 && rowData[currentIndex - 1].pnr !== currentPNR;
+                
+                return {
+                    backgroundColor: colors[pnrIndex] || '#ffffff',
+                    ...(isFirstOfGroup ? {
+                        borderTop: '3px solid #3b82f6'
+                        // NO marginTop or paddingTop to avoid row height issues
+                    } : {})
+                };
             }
+            
             return null;
         };
 
@@ -394,11 +427,14 @@
                     const firstOccurrence = rowData.findIndex(row => row.pnr === currentPNR);
                     
                     if (firstOccurrence === currentIndex) {
-                        // First occurrence - show PNR with potential top border for grouping
+                        // First occurrence - show PNR with ticket icon for better visual identification
                         const isNewGroup = currentIndex > 0 && rowData[currentIndex - 1].pnr !== currentPNR;
-                        const borderStyle = isNewGroup ? 'border-top: 2px solid #cbd5e1; padding-top: 4px;' : '';
+                        const ticketIcon = '🎫';
                         
-                        return `<div style="font-weight: 700; color: #1f2937; font-size: 15px; ${borderStyle} height: 100%; display: flex; align-items: center;">${currentPNR}</div>`;
+                        return `<div style="font-weight: 700; color: #1f2937; font-size: 15px; height: 100%; display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 18px;">${ticketIcon}</span>
+                                    <span>${currentPNR}</span>
+                                </div>`;
                     } else {
                         return ''; // Not the first occurrence, return empty
                     }
@@ -615,8 +651,8 @@
             // 14. Deadlines and Issue date (PNR-grouped: only shown for first flight of each PNR)
             { 
                 headerName: 'Deadline 1 (-60d)', 
-                width: 160, 
-                minWidth: 140,
+                width: 180, 
+                minWidth: 160,
                 editable: false,
                 valueGetter: params => getPNRDeadlines(params, 'deadline1'),
                 comparator: pnrGroupedComparator('deadline1'),
@@ -631,12 +667,15 @@
                     };
                 },
                 filter: 'agDateColumnFilter',
+                filterParams: {
+                    filterPlaceholder: 'Filter dates...'
+                },
                 headerTooltip: 'Auto calculated - 60 days before first flight departure (PNR-grouped)'
             },
             { 
                 headerName: 'Deadline 2 (-30d)', 
-                width: 160, 
-                minWidth: 140,
+                width: 180, 
+                minWidth: 160,
                 editable: false,
                 valueGetter: params => getPNRDeadlines(params, 'deadline2'),
                 comparator: pnrGroupedComparator('deadline2'),
@@ -651,12 +690,15 @@
                     };
                 },
                 filter: 'agDateColumnFilter',
+                filterParams: {
+                    filterPlaceholder: 'Filter dates...'
+                },
                 headerTooltip: 'Auto calculated - 30 days before first flight departure (PNR-grouped)'
             },
             { 
                 headerName: 'Issue Date (-20d)', 
-                width: 150, 
-                minWidth: 130,
+                width: 170, 
+                minWidth: 150,
                 editable: false,
                 valueGetter: params => getPNRDeadlines(params, 'issueDate'),
                 comparator: pnrGroupedComparator('issueDate'),
@@ -671,6 +713,9 @@
                     };
                 },
                 filter: 'agDateColumnFilter',
+                filterParams: {
+                    filterPlaceholder: 'Filter dates...'
+                },
                 headerTooltip: 'Auto calculated - 20 days before first flight departure (PNR-grouped)'
             }
         ];
@@ -701,8 +746,8 @@
                 wrapText: false,
                 suppressSizeToFit: false
             },
-            // Add spacing between different PNRs - DISABLED to ensure consistent row heights
-            // getRowStyle: getRowStyle,
+            // Add spacing between different PNRs
+            getRowStyle: getRowStyle,
             // Enable auto-saving on cell edit
             onCellValueChanged: function(event) {
                 console.log('Cell value changed:', event.data);
