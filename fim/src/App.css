@@ -1,0 +1,214 @@
+/* Mobile-first responsive design */
+.app-container {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.app-card {
+  width: 100%;
+  max-width: 24rem; /* 384px */
+  margin: 0 auto;
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  text-align: center;
+}
+
+.app-title {
+  font-size: 1.25rem; /* 20px */
+  font-weight: bold;
+  color: #1f2937;
+  margin-bottom: 0.75rem;
+  line-height: 1.2;
+}
+
+.app-description {
+  font-size: 0.875rem; /* 14px */
+  color: #4b5563;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.app-subtitle {
+  font-size: 0.75rem; /* 12px */
+  color: #6b7280;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.stagewise-notice {
+  background-color: #eff6ff;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.stagewise-notice p {
+  font-size: 0.75rem; /* 12px */
+  color: #2563eb;
+  font-weight: 500;
+  margin: 0;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.feature-card {
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.feature-mobile {
+  background-color: #f0fdf4;
+}
+
+.feature-ai {
+  background-color: #faf5ff;
+}
+
+.feature-flight {
+  background-color: #fff7ed;
+}
+
+.feature-title {
+  font-size: 0.75rem; /* 12px */
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.feature-mobile .feature-title {
+  color: #16a34a;
+}
+
+.feature-ai .feature-title {
+  color: #9333ea;
+}
+
+.feature-flight .feature-title {
+  color: #ea580c;
+}
+
+.feature-desc {
+  font-size: 0.75rem; /* 12px */
+}
+
+.feature-mobile .feature-desc {
+  color: #15803d;
+}
+
+.feature-ai .feature-desc {
+  color: #7c3aed;
+}
+
+.feature-flight .feature-desc {
+  color: #c2410c;
+}
+
+.app-footer {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.footer-text {
+  font-size: 0.75rem; /* 12px */
+  color: #9ca3af;
+  margin-bottom: 0.5rem;
+}
+
+.tech-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.tech-badge {
+  background-color: #f9fafb;
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem; /* 12px */
+  color: #4b5563;
+}
+
+/* Tablet styles */
+@media (min-width: 640px) {
+  .app-card {
+    max-width: 28rem; /* 448px */
+    padding: 1.5rem;
+  }
+  
+  .app-title {
+    font-size: 1.5rem; /* 24px */
+    margin-bottom: 1rem;
+  }
+  
+  .app-description {
+    font-size: 1rem; /* 16px */
+    margin-bottom: 1.5rem;
+  }
+  
+  .app-subtitle {
+    font-size: 0.875rem; /* 14px */
+    margin-bottom: 1rem;
+  }
+  
+  .stagewise-notice {
+    padding: 1rem;
+  }
+  
+  .stagewise-notice p {
+    font-size: 0.875rem; /* 14px */
+  }
+  
+  .features-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .feature-flight {
+    grid-column: span 2;
+  }
+  
+  .feature-card {
+    padding: 1rem;
+  }
+  
+  .feature-title {
+    font-size: 0.875rem; /* 14px */
+  }
+  
+  .tech-badges {
+    flex-direction: row;
+    gap: 0.75rem;
+  }
+  
+  .app-footer {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+  }
+}
+
+/* Desktop styles */
+@media (min-width: 1024px) {
+  .app-card {
+    max-width: 32rem; /* 512px */
+  }
+  
+  .app-title {
+    font-size: 1.875rem; /* 30px */
+  }
+} 

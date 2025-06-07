@@ -1,15 +1,19 @@
-runtime: nodejs20
+runtime: nodejs18
 
 env_variables:
-  NODE_ENV: production
+  NODE_ENV: "production"
+  DATABASE_URL: "YOUR_CLOUD_SQL_CONNECTION_STRING"
   DB_HOST: /cloudsql/saksit-saelow-project:asia-southeast1:flight-inventory-db
   DB_USER: root
   DB_PASSWORD: FlightInventory2025SecureDB
   DB_NAME: flight_inventory
   FRONTEND_URL: https://saksit-saelow-project.appspot.com
 
+instance_class: F1
+
 automatic_scaling:
-  min_instances: 0
+  target_cpu_utilization: 0.65
+  min_instances: 1
   max_instances: 10
 
 resources:
@@ -25,4 +29,7 @@ health_check:
   healthy_threshold: 2
 
 beta_settings:
-  cloud_sql_instances: saksit-saelow-project:asia-southeast1:flight-inventory-db 
+  cloud_sql_instances: saksit-saelow-project:asia-southeast1:flight-inventory-db
+
+vpc_access_connector:
+  name: "projects/YOUR_PROJECT_ID/locations/YOUR_REGION/connectors/YOUR_CONNECTOR_NAME" 

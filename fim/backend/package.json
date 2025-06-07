@@ -1,30 +1,36 @@
 {
-  "name": "flight-inventory-api",
+  "name": "flight-inventory-backend",
   "version": "1.0.0",
-  "description": "Backend API for Flight Inventory Management System",
-  "main": "server.js",
+  "description": "Backend API for Flight Inventory Management",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "deploy": "gcloud app deploy"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "helmet": "^7.1.0",
-    "mysql2": "^3.6.5",
+    "pg": "^8.11.3",
     "dotenv": "^16.3.1",
-    "express-rate-limit": "^7.1.5",
-    "express-validator": "^7.0.1",
-    "compression": "^1.7.4"
+    "cors": "^2.8.5",
+    "firebase-admin": "^11.11.1",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=16.0.0"
   },
-  "keywords": ["flight", "inventory", "management", "api", "google-cloud"],
-  "author": "SSaksit23",
+  "keywords": [
+    "flight",
+    "inventory",
+    "management",
+    "api",
+    "google-cloud"
+  ],
+  "author": "Flight Inventory Team",
   "license": "MIT"
 } 

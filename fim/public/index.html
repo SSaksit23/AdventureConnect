@@ -28,6 +28,8 @@
             --ag-header-height: 70px;
             --ag-font-size: 14px;
             --ag-cell-vertical-padding: 12px;
+            /* Fix for AG Grid theming API */
+            --ag-theme: 'ag-theme-alpine';
         }
         
         .ag-cell {
@@ -203,9 +205,10 @@
             <!-- New buttons for add and filter reset -->
             <div class="h-8 w-px bg-slate-300"></div>
             <button onclick="addNewRecord()" class="custom-button bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-plus-circle mr-2"></i>Add New PNR (2 rows)</button>
-            <button onclick="addSingleRow()" class="custom-button bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-plus mr-2"></i>Add Single Row</button>
+            <button onclick="addSingleRow()" class="custom-button bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-plus mr-2"></i>Add Row</button>
             <button onclick="deleteSelectedRows()" class="custom-button bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-trash mr-2"></i>Delete Selected</button>
             <button onclick="resetFilters()" class="custom-button bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-filter mr-2"></i>Reset Filter</button>
+            <button onclick="clearAllData()" class="custom-button bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-md text-sm flex items-center"><i class="fas fa-trash-alt mr-2"></i>Clear All Data</button>
             
             <!-- Row Height Control -->
             <div class="h-8 w-px bg-slate-300"></div>
@@ -231,6 +234,8 @@
         <!-- The AG Grid element -->
         <div id="myGrid" class="ag-theme-alpine w-full h-[600px] shadow-lg border border-slate-200 rounded-lg"></div>
 
+        <!-- Root div for React (to prevent console errors) -->
+        <div id="root" style="display: none;"></div>
 
     </div>
 
@@ -253,23 +258,146 @@
                 // Simulate API delay
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 
-                // Mock response from Amadeus API
+                // Enhanced mock response from Amadeus API with more flight data
                 const mockApiResponse = {
+                    // China Southern Airlines
                     'CZ3036': { route: 'BKK-CAN', time: '03.00-07.00', aircraft: 'A320' },
                     'CZ6900': { route: 'CAN-URC', time: '09.05-14.15', aircraft: 'A321' },
                     'CZ6881': { route: 'URC-CAN', time: '16.45-21.55', aircraft: 'A321' },
                     'CZ3035': { route: 'CAN-BKK', time: '23.35-01.30+1', aircraft: 'A320' },
+                    'CZ6100': { route: 'CAN-NRT', time: '14.30-19.45', aircraft: 'A330' },
+                    'CZ8582': { route: 'NRT-CAN', time: '21.00-00.30+1', aircraft: 'A330' },
+                    
+                    // Air China
+                    'CA980': { route: 'PEK-BKK', time: '13.00-20.45', aircraft: 'A330' },
+                    'CA979': { route: 'BKK-PEK', time: '22.30-05.45+1', aircraft: 'A330' },
+                    'CA183': { route: 'PEK-LAX', time: '14.30-10.15', aircraft: 'B777' },
+                    'CA184': { route: 'LAX-PEK', time: '11.55-16.30+1', aircraft: 'B777' },
+                    'CA931': { route: 'PEK-FRA', time: '13.50-18.20', aircraft: 'A350' },
+                    'CA932': { route: 'FRA-PEK', time: '21.25-12.40+1', aircraft: 'A350' },
+                    
+                    // Air France
                     'AF165': { route: 'BKK-CDG', time: '11.30-17.45', aircraft: 'B777' },
+                    'AF166': { route: 'CDG-BKK', time: '23.50-15.30+1', aircraft: 'B777' },
+                    'AF1148': { route: 'CDG-FCO', time: '09.30-11.25', aircraft: 'A320' },
+                    'AF1305': { route: 'FCO-CDG', time: '16.15-18.30', aircraft: 'A320' },
+                    
+                    // Lufthansa
                     'LH773': { route: 'CDG-FRA', time: '08.15-09.45', aircraft: 'A320' },
+                    'LH714': { route: 'FRA-CDG', time: '15.20-16.50', aircraft: 'A320' },
+                    'LH440': { route: 'FRA-LAX', time: '13.50-17.10', aircraft: 'A380' },
+                    'LH441': { route: 'LAX-FRA', time: '22.30-18.45+1', aircraft: 'A380' },
+                    
+                    // United Airlines
                     'UA838': { route: 'BKK-LAX', time: '14.20-10.30+1', aircraft: 'B787' },
-                    'UA1205': { route: 'LAX-SFO', time: '13.45-15.20', aircraft: 'B737' }
+                    'UA837': { route: 'LAX-BKK', time: '11.25-19.15+1', aircraft: 'B787' },
+                    'UA1205': { route: 'LAX-SFO', time: '13.45-15.20', aircraft: 'B737' },
+                    'UA1158': { route: 'SFO-LAX', time: '18.30-20.05', aircraft: 'B737' },
+                    'UA877': { route: 'LAX-NRT', time: '11.40-15.55+1', aircraft: 'B777' },
+                    'UA876': { route: 'NRT-LAX', time: '16.30-09.45', aircraft: 'B777' },
+                    
+                    // All Nippon Airways
+                    'NH806': { route: 'NRT-BKK', time: '17.35-22.30', aircraft: 'B787' },
+                    'NH805': { route: 'BKK-NRT', time: '00.05-07.50', aircraft: 'B787' },
+                    'NH202': { route: 'NRT-SYD', time: '21.45-08.45+1', aircraft: 'A380' },
+                    'NH201': { route: 'SYD-NRT', time: '10.25-19.15', aircraft: 'A380' },
+                    
+                    // Jetstar Airways
+                    'JQ29': { route: 'SYD-BKK', time: '21.40-02.45+1', aircraft: 'A321' },
+                    'JQ30': { route: 'BKK-SYD', time: '04.15-17.30', aircraft: 'A321' },
+                    
+                    // Turkish Airlines
+                    'TK70': { route: 'IST-BKK', time: '01.30-14.25', aircraft: 'B777' },
+                    'TK69': { route: 'BKK-IST', time: '16.40-22.50', aircraft: 'B777' },
+                    'TK1951': { route: 'IST-FCO', time: '14.15-16.25', aircraft: 'A330' },
+                    'TK1952': { route: 'FCO-IST', time: '17.55-21.40', aircraft: 'A330' },
+                    
+                    // Singapore Airlines
+                    'SQ711': { route: 'SIN-BKK', time: '07.25-08.40', aircraft: 'A350' },
+                    'SQ712': { route: 'BKK-SIN', time: '10.20-13.35', aircraft: 'A350' },
+                    'SQ12': { route: 'SIN-LAX', time: '08.55-07.20', aircraft: 'A350' },
+                    'SQ11': { route: 'LAX-SIN', time: '09.35-18.05+1', aircraft: 'A350' },
+                    
+                    // Emirates
+                    'EK384': { route: 'DXB-BKK', time: '02.40-12.15', aircraft: 'A380' },
+                    'EK385': { route: 'BKK-DXB', time: '19.20-23.40', aircraft: 'A380' },
+                    'EK215': { route: 'DXB-LAX', time: '08.45-13.15', aircraft: 'A380' },
+                    'EK216': { route: 'LAX-DXB', time: '16.25-19.55+1', aircraft: 'A380' },
+                    
+                    // China Eastern
+                    'MU548': { route: 'PVG-BKK', time: '08.30-12.30', aircraft: 'A330' },
+                    'MU547': { route: 'BKK-PVG', time: '14.00-19.30', aircraft: 'A330' },
+                    'MU587': { route: 'PVG-LAX', time: '13.30-09.50', aircraft: 'B777' },
+                    'MU588': { route: 'LAX-PVG', time: '11.25-17.25+1', aircraft: 'B777' }
                 };
                 
-                const flightData = mockApiResponse[flightNumber] || { 
-                    route: 'UNKNOWN', 
-                    time: 'TBA', 
-                    aircraft: 'TBA' 
-                };
+                // Ensure case-insensitive lookup
+                const normalizedFlightNumber = flightNumber.toUpperCase().trim();
+                let flightData = mockApiResponse[normalizedFlightNumber];
+                
+                console.log(`Looking up flight: ${normalizedFlightNumber}, found in database: ${!!flightData}`);
+                
+                // If flight not found in mock data, generate realistic data based on flight code
+                if (!flightData) {
+                    const airline = normalizedFlightNumber.substring(0, 2);
+                    const flightNum = flightNumber.substring(2);
+                    
+                    // Generate realistic time and route based on airline
+                    const generateFlightData = (airlineCode) => {
+                        const commonRoutes = {
+                            'CZ': ['BKK-CAN', 'CAN-BKK', 'CAN-URC', 'URC-CAN', 'CAN-PEK', 'PEK-CAN'],
+                            'CA': ['PEK-BKK', 'BKK-PEK', 'PEK-LAX', 'LAX-PEK', 'PEK-FRA', 'FRA-PEK'], // Air China
+                            'MU': ['PVG-BKK', 'BKK-PVG', 'PVG-LAX', 'LAX-PVG', 'PVG-NRT', 'NRT-PVG'], // China Eastern
+                            'AF': ['CDG-BKK', 'BKK-CDG', 'CDG-FCO', 'FCO-CDG', 'CDG-FRA', 'FRA-CDG'],
+                            'LH': ['FRA-BKK', 'BKK-FRA', 'FRA-LAX', 'LAX-FRA', 'FRA-CDG', 'CDG-FRA'],
+                            'UA': ['LAX-BKK', 'BKK-LAX', 'LAX-SFO', 'SFO-LAX', 'LAX-NRT', 'NRT-LAX'],
+                            'DL': ['LAX-BKK', 'BKK-LAX', 'LAX-NRT', 'NRT-LAX', 'ATL-BKK', 'BKK-ATL'], // Delta
+                            'AA': ['LAX-BKK', 'BKK-LAX', 'DFW-BKK', 'BKK-DFW', 'LAX-NRT', 'NRT-LAX'], // American
+                            'NH': ['NRT-BKK', 'BKK-NRT', 'NRT-SYD', 'SYD-NRT', 'NRT-LAX', 'LAX-NRT'],
+                            'JL': ['NRT-BKK', 'BKK-NRT', 'NRT-LAX', 'LAX-NRT', 'NRT-SYD', 'SYD-NRT'], // JAL
+                            'JQ': ['SYD-BKK', 'BKK-SYD', 'SYD-MEL', 'MEL-SYD', 'SYD-PER', 'PER-SYD'],
+                            'QF': ['SYD-BKK', 'BKK-SYD', 'SYD-LAX', 'LAX-SYD', 'SYD-LHR', 'LHR-SYD'], // Qantas
+                            'TK': ['IST-BKK', 'BKK-IST', 'IST-FCO', 'FCO-IST', 'IST-FRA', 'FRA-IST'],
+                            'SQ': ['SIN-BKK', 'BKK-SIN', 'SIN-LAX', 'LAX-SIN', 'SIN-LHR', 'LHR-SIN'], // Singapore Airlines
+                            'EK': ['DXB-BKK', 'BKK-DXB', 'DXB-LAX', 'LAX-DXB', 'DXB-LHR', 'LHR-DXB'], // Emirates
+                            'QR': ['DOH-BKK', 'BKK-DOH', 'DOH-LAX', 'LAX-DOH', 'DOH-LHR', 'LHR-DOH'], // Qatar Airways
+                            'BA': ['LHR-BKK', 'BKK-LHR', 'LHR-LAX', 'LAX-LHR', 'LHR-CDG', 'CDG-LHR'], // British Airways
+                            'VS': ['LHR-BKK', 'BKK-LHR', 'LHR-LAX', 'LAX-LHR', 'LHR-JFK', 'JFK-LHR']  // Virgin Atlantic
+                        };
+                        
+                        const routes = commonRoutes[airlineCode];
+                        let randomRoute;
+                        
+                        if (routes && routes.length > 0) {
+                            randomRoute = routes[Math.floor(Math.random() * routes.length)];
+                        } else {
+                            // Better fallback for unknown airlines
+                            const popularRoutes = [
+                                'BKK-HKG', 'HKG-BKK', 'BKK-SIN', 'SIN-BKK', 
+                                'BKK-KUL', 'KUL-BKK', 'BKK-NRT', 'NRT-BKK',
+                                'BKK-ICN', 'ICN-BKK', 'BKK-TPE', 'TPE-BKK'
+                            ];
+                            randomRoute = popularRoutes[Math.floor(Math.random() * popularRoutes.length)];
+                        }
+                        
+                        // Generate random but realistic departure time
+                        const hours = Math.floor(Math.random() * 24);
+                        const minutes = Math.floor(Math.random() * 4) * 15; // 0, 15, 30, 45
+                        const arrivalHours = (hours + Math.floor(Math.random() * 12) + 1) % 24;
+                        const arrivalMinutes = Math.floor(Math.random() * 4) * 15;
+                        
+                        const depTime = `${hours.toString().padStart(2, '0')}.${minutes.toString().padStart(2, '0')}`;
+                        const arrTime = `${arrivalHours.toString().padStart(2, '0')}.${arrivalMinutes.toString().padStart(2, '0')}`;
+                        
+                        return {
+                            route: randomRoute,
+                            time: `${depTime}-${arrTime}`,
+                            aircraft: ['A320', 'A321', 'A330', 'B737', 'B777', 'B787'][Math.floor(Math.random() * 6)]
+                        };
+                    };
+                    
+                    flightData = generateFlightData(airline);
+                }
                 
                 showToast(`Flight ${flightNumber} details updated from Amadeus!`, 'success');
                 return flightData;
@@ -345,19 +473,22 @@
             };
         };
 
-        // Date calculation logic - only for the first flight of each PNR
+        // Date calculation logic - automatically calculates deadlines based on first flight departure date
         const calculateDates = (departureDateStr) => {
             const departureDate = new Date(departureDateStr);
             if (isNaN(departureDate.getTime())) {
                 return { issueDate: null, deadline1: null, deadline2: null };
             }
 
+            // Calculate Issue Date: 20 days before departure
             const issueDate = new Date(departureDate);
             issueDate.setDate(departureDate.getDate() - 20);
 
+            // Calculate Deadline 1: 60 days before departure
             const deadline1 = new Date(departureDate);
             deadline1.setDate(departureDate.getDate() - 60);
             
+            // Calculate Deadline 2: 30 days before departure
             const deadline2 = new Date(departureDate);
             deadline2.setDate(departureDate.getDate() - 30);
 
@@ -366,6 +497,35 @@
                 deadline1: formatDate(deadline1),
                 deadline2: formatDate(deadline2)
             };
+        };
+
+        // Function to update deadlines when departure date changes
+        const updatePNRDeadlines = (pnr) => {
+            if (!gridApi || !pnr) return;
+            
+            try {
+                // Find first flight of the PNR
+                const firstFlight = rowData.find(row => row.pnr === pnr);
+                if (!firstFlight || !firstFlight.departureDate) return;
+                
+                // Recalculate dates based on first flight's departure date
+                const dates = calculateDates(firstFlight.departureDate);
+                
+                // Refresh grid to show updated deadlines
+                gridApi.refreshCells({ 
+                    force: true,
+                    columns: ['deadline1', 'deadline2', 'issueDate']
+                });
+                
+                // Show toast notification
+                if (dates.deadline1) {
+                    const formattedDate = new Date(firstFlight.departureDate).toLocaleDateString('en-GB');
+                    showToast(`Deadlines updated for PNR ${pnr} (Departure: ${formattedDate})`, 'success');
+                }
+            } catch (error) {
+                console.error('Error updating PNR deadlines:', error);
+                showToast('Error updating deadlines', 'error');
+            }
         };
 
         // Function to get PNR-based fare values (only for first flight of each PNR)
@@ -507,34 +667,11 @@
         // In a real app, this would come from a database.
         // Based on the flight table provided - showing multi-segment journeys
         let rowData = [
-            // First PNR - China Urumqi Route 4 segments (30 May 25 departure) - Total fare: ฿34,000 + ฿6,350 tax
+            // Sample PNR - China Urumqi Route 4 segments (30 May 25 departure) - Total fare: ฿34,000 + ฿6,350 tax
             { id: 1, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-05-30', flight: 'CZ3036', seat: 25, fare: 34000, yq: 6350, deposit: 2000, pushToMarket: 'Yes', route: 'BKK-CAN', time: '03.00-07.00' },
             { id: 2, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-05-30', flight: 'CZ6900', seat: 25, fare: 34000, yq: 6350, deposit: 2000, pushToMarket: 'Yes', route: 'CAN-URC', time: '09.05-14.15' },
             { id: 3, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-06-06', flight: 'CZ6881', seat: 25, fare: 34000, yq: 6350, deposit: 2000, pushToMarket: 'Yes', route: 'URC-CAN', time: '16.45-21.55' },
             { id: 4, groupCode: 'CHNURC01', pnr: 'ABC123', departureDate: '2025-06-06', flight: 'CZ3035', seat: 25, fare: 34000, yq: 6350, deposit: 2000, pushToMarket: 'Yes', route: 'CAN-BKK', time: '23.35-01.30+1' },
-            
-            // Second PNR - China Urumqi Route 4 segments (2 Jun 25 departure) - Total fare: ฿33,000 + ฿6,350 tax
-            { id: 5, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-02', flight: 'CZ3036', seat: 30, fare: 33000, yq: 6350, deposit: 1800, pushToMarket: 'No', route: 'BKK-CAN', time: '03.00-07.00' },
-            { id: 6, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-02', flight: 'CZ6900', seat: 30, fare: 33000, yq: 6350, deposit: 1800, pushToMarket: 'No', route: 'CAN-URC', time: '09.05-14.15' },
-            { id: 7, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-09', flight: 'CZ6881', seat: 30, fare: 33000, yq: 6350, deposit: 1800, pushToMarket: 'No', route: 'URC-CAN', time: '16.45-21.55' },
-            { id: 8, groupCode: 'CHNURC02', pnr: 'DEF456', departureDate: '2025-06-09', flight: 'CZ3035', seat: 30, fare: 33000, yq: 6350, deposit: 1800, pushToMarket: 'No', route: 'CAN-BKK', time: '23.35-01.30+1' },
-            
-            // Third PNR - Europe Summer Route 3 segments - Total fare: ฿40,000 + ฿11,500 tax
-            { id: 9, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-20', flight: 'AF165', seat: 50, fare: 40000, yq: 11500, deposit: 3000, pushToMarket: 'Yes', route: 'BKK-CDG', time: '11.30-17.45' },
-            { id: 10, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-22', flight: 'LH773', seat: 50, fare: 40000, yq: 11500, deposit: 3000, pushToMarket: 'Yes', route: 'CDG-FRA', time: '08.15-09.45' },
-            { id: 11, groupCode: 'EURSUM25', pnr: 'GHI789', departureDate: '2025-07-30', flight: 'TG931', seat: 50, fare: 40000, yq: 11500, deposit: 3000, pushToMarket: 'Yes', route: 'FRA-BKK', time: '22.15-13.45+1' },
-            
-            // Fourth PNR - US West Coast Route 2 segments - Total fare: ฿27,000 + ฿7,700 tax
-            { id: 12, groupCode: 'USWEST05', pnr: 'JKL012', departureDate: '2025-09-01', flight: 'UA838', seat: 15, fare: 27000, yq: 7700, deposit: 5000, pushToMarket: 'Yes', route: 'BKK-LAX', time: '14.20-10.30+1' },
-            { id: 13, groupCode: 'USWEST05', pnr: 'JKL012', departureDate: '2025-09-02', flight: 'UA1205', seat: 15, fare: 27000, yq: 7700, deposit: 5000, pushToMarket: 'Yes', route: 'LAX-SFO', time: '13.45-15.20' },
-            
-            // Fifth PNR - Japan Route 2 segments - Total fare: ฿17,700 + ฿4,400 tax
-            { id: 14, groupCode: 'BKKJAP01', pnr: 'MNO345', departureDate: '2025-08-15', flight: 'TG640', seat: 35, fare: 17700, yq: 4400, deposit: 2500, pushToMarket: 'Yes', route: 'BKK-NRT', time: '09.00-17.30' },
-            { id: 15, groupCode: 'BKKJAP01', pnr: 'MNO345', departureDate: '2025-08-22', flight: 'NH850', seat: 35, fare: 17700, yq: 4400, deposit: 2500, pushToMarket: 'Yes', route: 'NRT-BKK', time: '18.45-23.15' },
-            
-            // Sixth PNR - Australia Route 2 segments - Total fare: ฿33,700 + ฿10,700 tax
-            { id: 16, groupCode: 'AUSDOWNU', pnr: 'PQR678', departureDate: '2025-10-05', flight: 'QF24', seat: 40, fare: 33700, yq: 10700, deposit: 4000, pushToMarket: 'No', route: 'BKK-SYD', time: '23.35-11.50+1' },
-            { id: 17, groupCode: 'AUSDOWNU', pnr: 'PQR678', departureDate: '2025-10-15', flight: 'TG476', seat: 40, fare: 33700, yq: 10700, deposit: 4000, pushToMarket: 'No', route: 'SYD-BKK', time: '13.20-18.45' },
         ];
 
 
@@ -615,8 +752,37 @@
                     min: '2025-01-01',
                     max: '2026-12-31'
                 },
+                valueParser: (params) => {
+                    // Ensure date is in proper format for storage
+                    if (!params.newValue) return null;
+                    
+                    try {
+                        // Handle different input types
+                        let date;
+                        if (params.newValue instanceof Date) {
+                            date = params.newValue;
+                        } else {
+                            date = new Date(params.newValue);
+                        }
+                        
+                        if (!isNaN(date.getTime())) {
+                            return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+                        }
+                    } catch (e) {
+                        console.error('Date parsing error:', e);
+                    }
+                    return params.newValue;
+                },
+                onCellValueChanged: (params) => {
+                    // Auto-update deadlines when departure date changes
+                    if (params.data && params.data.pnr) {
+                        setTimeout(() => {
+                            updatePNRDeadlines(params.data.pnr);
+                        }, 100);
+                    }
+                },
                 filter: 'agDateColumnFilter',
-                headerTooltip: 'User input - Flight departure date (click to open date picker)',
+                headerTooltip: 'User input - Flight departure date (automatically updates deadlines for PNR)',
                 cellStyle: { 
                     textAlign: 'center',
                     fontWeight: '500',
@@ -625,8 +791,28 @@
                 },
                 valueFormatter: (params) => {
                     if (!params.value) return '';
-                    const date = new Date(params.value);
-                    return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+                    
+                    try {
+                        let date;
+                        
+                        // Handle different value types
+                        if (params.value instanceof Date) {
+                            date = params.value;
+                        } else if (typeof params.value === 'string') {
+                            date = new Date(params.value);
+                        } else {
+                            return params.value;
+                        }
+                        
+                        // Check if date is valid
+                        if (!isNaN(date.getTime())) {
+                            return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+                        }
+                    } catch (e) {
+                        console.error('Date formatting error:', e);
+                    }
+                    
+                    return params.value;
                 }
             },
             // 4. Flight (user input)
@@ -975,8 +1161,15 @@
         const gridOptions = {
             columnDefs: columnDefs,
             rowData: rowData,
-            getRowId: (params) => params.data.id,
-            rowSelection: 'multiple', // Enable row selection
+            getRowId: (params) => {
+                // Add error checking for robust row ID generation
+                if (!params || !params.data || !params.data.id) {
+                    console.warn('Invalid row data for getRowId:', params);
+                    return Math.random().toString(36).substr(2, 9); // Fallback ID
+                }
+                return params.data.id.toString();
+            },
+            rowSelection: { mode: 'multiRow' }, // Enable multiple row selection (v32+ syntax)
             defaultColDef: {
                 sortable: true,
                 resizable: true,
@@ -1000,9 +1193,11 @@
             // Enable auto-saving on cell edit
             onCellValueChanged: function(event) {
                 console.log('Cell value changed:', event.data);
-                // In a real app, this would trigger an API call to the backend to save the data.
-                // e.g., saveRowData(event.data);
-                showToast(`Saved PNR: ${event.data.pnr}`);
+                
+                // Auto-save to localStorage
+                autoSaveData();
+                showToast(`Saved PNR: ${event.data.pnr}`, 'success');
+                
                 // Refresh cells to re-calculate dates if departure date was changed
                 if (event.colDef.field === 'departureDate' || event.colDef.field === 'fare' || event.colDef.field === 'yq' || event.colDef.field === 'seat' || event.colDef.field === 'deposit') {
                    gridApi.refreshCells({ force: true });
@@ -1018,11 +1213,75 @@
             }
         };
         
+        // ======= DATA PERSISTENCE =======
+        
+        // Save data to localStorage
+        function saveDataToStorage() {
+            try {
+                localStorage.setItem('flightInventoryData', JSON.stringify(rowData));
+                console.log('Data saved to localStorage');
+            } catch (error) {
+                console.error('Failed to save data to localStorage:', error);
+            }
+        }
+        
+        // Load data from localStorage
+        function loadDataFromStorage() {
+            try {
+                const savedData = localStorage.getItem('flightInventoryData');
+                if (savedData) {
+                    const parsedData = JSON.parse(savedData);
+                    if (Array.isArray(parsedData) && parsedData.length > 0) {
+                        rowData.length = 0; // Clear existing data
+                        rowData.push(...parsedData); // Load saved data
+                        console.log(`Loaded ${parsedData.length} records from localStorage`);
+                        showToast(`Loaded ${parsedData.length} saved records`, 'success');
+                        return true;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load data from localStorage:', error);
+            }
+            return false;
+        }
+        
+        // Auto-save data when changes occur
+        function autoSaveData() {
+            saveDataToStorage();
+        }
+        
+        // Clear all data and restart with demo data
+        function clearAllData() {
+            if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                // Clear localStorage
+                localStorage.removeItem('flightInventoryData');
+                
+                // Reload the page to start fresh with demo data
+                location.reload();
+                
+            } catch (error) {
+                console.error('Failed to clear data:', error);
+                showToast('Failed to clear data', 'error');
+            }
+        }
+
         // Let's go!
         document.addEventListener('DOMContentLoaded', () => {
+            // Load saved data first
+            const dataLoaded = loadDataFromStorage();
+            
             const gridDiv = document.querySelector('#myGrid');
             // FIX: Use createGrid instead of the old constructor
             agGrid.createGrid(gridDiv, gridOptions);
+            
+            if (!dataLoaded) {
+                // If no saved data, show the default demo data message
+                showToast("Demo data loaded. Your changes will be automatically saved.", 'info');
+            }
         });
 
         // ======= TOOLBAR FUNCTIONS =======
@@ -1380,6 +1639,7 @@
                     });
                 }
                 showToast(`New PNR ${newPNR} created with 2 rows! Start entering data.`, 'success');
+                autoSaveData(); // Save after adding new PNR
             } else {
                 showToast("Failed to add new PNR records", 'error');
             }
@@ -1430,6 +1690,7 @@
                     });
                 }
                 showToast("New single row added! Enter PNR to assign to existing group or create new one.", 'success');
+                autoSaveData(); // Save after adding new row
             } else {
                 showToast("Failed to add new row", 'error');
             }
@@ -1467,10 +1728,15 @@
             
             if (result.remove && result.remove.length > 0) {
                 showToast(`${result.remove.length} record(s) deleted successfully`, 'success');
+                autoSaveData(); // Save after deleting rows
+                // Refresh to update PNR grouping
+                gridApi.refreshCells({ force: true });
             } else {
                 showToast("Failed to delete records", 'error');
             }
         }
+
+
 
         function refreshAmadeusData() {
             // Placeholder for real API call
@@ -1483,6 +1749,8 @@
 
         // Function to update individual flight from Amadeus
         async function updateFlightFromAmadeus(rowId, flightNumber, departureDate) {
+            console.log('updateFlightFromAmadeus called with:', { rowId, flightNumber, departureDate });
+            
             if (!flightNumber) {
                 showToast("Please enter a flight number first", 'error');
                 return;
@@ -1494,17 +1762,24 @@
             }
             
             const flightData = await fetchFlightDetailsFromAmadeus(flightNumber, departureDate);
+            console.log('Flight data received:', flightData);
+            
             if (flightData) {
                 // Update the row data
                 const rowNode = gridApi.getRowNode(rowId);
                 if (rowNode) {
+                    console.log('Updating row with data:', { route: flightData.route, time: flightData.time });
                     rowNode.setDataValue('route', flightData.route);
                     rowNode.setDataValue('time', flightData.time);
                     gridApi.refreshCells({ force: true });
+                    showToast(`Flight ${flightNumber}: ${flightData.route} ${flightData.time}`, 'success');
                 } else {
                     console.error('Row node not found for ID:', rowId);
                     showToast("Could not find flight record to update", 'error');
                 }
+            } else {
+                console.error('No flight data returned from API');
+                showToast("Failed to fetch flight data", 'error');
             }
         }
         
