@@ -45,6 +45,198 @@ const InputField = ({ label, type = "text", value, onChange, placeholder, error,
   </div>
 );
 
+// --- Helper: Location Autocomplete Component ---
+const LocationAutocomplete = ({ label, value, onChange, placeholder, required }) => {
+  const [suggestions, setSuggestions] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [countriesData, setCountriesData] = useState([]);
+
+  // Cache for the Countries Now API data
+  useEffect(() => {
+    const loadCountriesData = async () => {
+      try {
+        const response = await fetch('https://countriesnow.space/api/v0.1/countries');
+        const data = await response.json();
+        if (data.error === false && data.data) {
+          setCountriesData(data.data);
+        }
+      } catch (error) {
+        console.log('Failed to load countries data:', error);
+        // Fallback to a smaller static dataset for popular destinations
+        setCountriesData([
+          { country: 'China', cities: ['Beijing', 'Shanghai', 'Guangzhou', 'Shenzhen', 'Chengdu', 'Hangzhou', 'Xi\'an'] },
+          { country: 'France', cities: ['Paris', 'Lyon', 'Marseille', 'Nice'] },
+          { country: 'United Kingdom', cities: ['London', 'Manchester', 'Edinburgh', 'Liverpool'] },
+          { country: 'Japan', cities: ['Tokyo', 'Osaka', 'Kyoto', 'Yokohama'] },
+          { country: 'United States', cities: ['New York', 'Los Angeles', 'Chicago', 'Miami'] },
+          { country: 'Thailand', cities: ['Bangkok', 'Phuket', 'Chiang Mai', 'Pattaya'] },
+          { country: 'Singapore', cities: ['Singapore'] },
+          { country: 'South Korea', cities: ['Seoul', 'Busan', 'Incheon'] }
+        ]);
+      }
+    };
+
+    loadCountriesData();
+  }, []);
+
+  // Helper function to get country code from country name
+  const getCountryCodeFromName = (countryName) => {
+    const countryCodeMap = {
+      'China': 'CN', 'France': 'FR', 'United Kingdom': 'GB', 'Japan': 'JP',
+      'United States': 'US', 'Thailand': 'TH', 'Singapore': 'SG', 'South Korea': 'KR',
+      'Germany': 'DE', 'Italy': 'IT', 'Spain': 'ES', 'Australia': 'AU',
+      'Canada': 'CA', 'Brazil': 'BR', 'India': 'IN', 'Russia': 'RU',
+      'Netherlands': 'NL', 'Switzerland': 'CH', 'Austria': 'AT', 'Belgium': 'BE',
+      'Sweden': 'SE', 'Norway': 'NO', 'Denmark': 'DK', 'Finland': 'FI',
+      'Poland': 'PL', 'Czech Republic': 'CZ', 'Hungary': 'HU', 'Portugal': 'PT',
+      'Greece': 'GR', 'Turkey': 'TR', 'Egypt': 'EG', 'South Africa': 'ZA',
+      'Mexico': 'MX', 'Argentina': 'AR', 'Chile': 'CL', 'Colombia': 'CO',
+      'Peru': 'PE', 'Venezuela': 'VE', 'Indonesia': 'ID', 'Malaysia': 'MY',
+      'Philippines': 'PH', 'Vietnam': 'VN', 'New Zealand': 'NZ', 'Israel': 'IL',
+      'United Arab Emirates': 'AE', 'Saudi Arabia': 'SA', 'Morocco': 'MA',
+      'Kenya': 'KE', 'Nigeria': 'NG', 'Ghana': 'GH', 'Bangladesh': 'BD',
+      'Pakistan': 'PK', 'Sri Lanka': 'LK', 'Nepal': 'NP', 'Myanmar': 'MM',
+      'Cambodia': 'KH', 'Laos': 'LA', 'Mongolia': 'MN', 'Kazakhstan': 'KZ',
+      'Uzbekistan': 'UZ', 'Georgia': 'GE', 'Armenia': 'AM', 'Azerbaijan': 'AZ',
+      'Ukraine': 'UA', 'Belarus': 'BY', 'Moldova': 'MD', 'Romania': 'RO',
+      'Bulgaria': 'BG', 'Serbia': 'RS', 'Croatia': 'HR', 'Slovenia': 'SI',
+      'Slovakia': 'SK', 'Lithuania': 'LT', 'Latvia': 'LV', 'Estonia': 'EE',
+      'Ireland': 'IE', 'Iceland': 'IS', 'Luxembourg': 'LU', 'Malta': 'MT',
+      'Cyprus': 'CY', 'Monaco': 'MC', 'Andorra': 'AD', 'San Marino': 'SM',
+      'Vatican City': 'VA', 'Liechtenstein': 'LI'
+    };
+    return countryCodeMap[countryName] || countryName.substring(0, 2).toUpperCase();
+  };
+
+  const searchLocations = (query) => {
+    if (!query || query.length < 2) {
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    setLoading(true);
+    
+    // Search through the countries data from API
+    setTimeout(() => {
+      const filtered = [];
+      const queryLower = query.toLowerCase();
+      
+      countriesData.forEach(countryData => {
+        const country = countryData.country;
+        const cities = countryData.cities || [];
+        
+        // Check if country name matches
+        if (country.toLowerCase().includes(queryLower)) {
+          // Add country as suggestion
+          filtered.push({
+            city: country,
+            country: country,
+            countryCode: getCountryCodeFromName(country),
+            isCountry: true
+          });
+        }
+        
+        // Check if any city matches
+        cities.forEach(city => {
+          if (city.toLowerCase().includes(queryLower)) {
+            filtered.push({
+              city: city,
+              country: country,
+              countryCode: getCountryCodeFromName(country),
+              isCountry: false
+            });
+          }
+        });
+      });
+      
+      // Sort by relevance and limit to 8 suggestions
+      const sorted = filtered
+        .sort((a, b) => {
+          const aStartsWith = a.city.toLowerCase().startsWith(queryLower);
+          const bStartsWith = b.city.toLowerCase().startsWith(queryLower);
+          if (aStartsWith && !bStartsWith) return -1;
+          if (!aStartsWith && bStartsWith) return 1;
+          return a.city.localeCompare(b.city);
+        })
+        .slice(0, 8);
+      
+      setSuggestions(sorted);
+      setShowDropdown(sorted.length > 0);
+      setLoading(false);
+    }, 300);
+  };
+
+  const handleInputChange = (e) => {
+    const query = e.target.value;
+    onChange(query);
+    searchLocations(query);
+  };
+
+  const selectLocation = (location) => {
+    const formattedLocation = `${location.city}, ${location.country}`;
+    onChange(formattedLocation);
+    setSuggestions([]);
+    setShowDropdown(false);
+  };
+
+  const handleBlur = () => {
+    // Delay hiding dropdown to allow for click events
+    setTimeout(() => setShowDropdown(false), 200);
+  };
+
+  return (
+    <div className="relative">
+      <label className="block text-sm font-medium text-gray-700">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <div className="relative">
+        <input
+          type="text"
+          value={value || ''}
+          onChange={handleInputChange}
+          onBlur={handleBlur}
+          onFocus={() => value && searchLocations(value)}
+          placeholder={placeholder}
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+        />
+        {loading && (
+          <div className="absolute right-3 top-3">
+            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+          </div>
+        )}
+        
+        {showDropdown && suggestions.length > 0 && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+            {suggestions.map((location, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => selectLocation(location)}
+                className="w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-gray-100 last:border-b-0 focus:outline-none focus:bg-blue-50"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-gray-900">{location.city}</div>
+                    <div className="text-sm text-gray-500">{location.country}</div>
+                  </div>
+                  <div className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
+                    {location.countryCode}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-gray-500 mt-1">
+        💡 Start typing a city name for suggestions with country information
+      </p>
+    </div>
+  );
+};
+
 // --- Step Components ---
 
 const Step1Inspiration = ({ tripData, updateTripData, handleNext, createTrip, tripId: currentTripId }) => {
@@ -150,56 +342,19 @@ const Step1Inspiration = ({ tripData, updateTripData, handleNext, createTrip, tr
 const Step2CoreDetails = ({ tripData, updateTripData, handleNext, handlePrev, saveTripProgress }) => {
   const [visaRequirements, setVisaRequirements] = useState(null);
   const [loadingVisa, setLoadingVisa] = useState(false);
+  
+  // Currency exchange states
+  const [exchangeRate, setExchangeRate] = useState(null);
+  const [loadingExchange, setLoadingExchange] = useState(false);
+  const [baseCurrency, setBaseCurrency] = useState('USD'); // User's nationality currency
+  const [targetCurrency, setTargetCurrency] = useState('USD'); // Destination currency
 
-  const fetchVisaRequirements = async (nationality, destinations) => {
-    if (!nationality || !destinations) return;
-    
-    setLoadingVisa(true);
-    try {
-      // Split destinations and check each one
-      const destinationList = destinations.split(',').map(d => d.trim());
-      const visaInfo = {};
-      
-      for (const destination of destinationList) {
-        try {
-          const response = await fetch(`https://visa-requirement.p.rapidapi.com/requirement?home=${nationality}&destination=${destination.toUpperCase()}`, {
-            method: 'GET',
-            headers: {
-              'x-rapidapi-host': 'visa-requirement.p.rapidapi.com',
-              'x-rapidapi-key': 'ee46d077f3msh3fd8e598f6d2d46p1d6fafjsn9d9542533b1f'
-            }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            visaInfo[destination] = data.requirement || 'Information not available';
-          } else {
-            visaInfo[destination] = 'Information not available';
-          }
-        } catch (err) {
-          console.error(`Error fetching visa info for ${destination}:`, err);
-          visaInfo[destination] = 'Information not available';
-        }
-      }
-      
-      setVisaRequirements(visaInfo);
-    } catch (error) {
-      console.error('Error fetching visa requirements:', error);
-      setVisaRequirements({ error: 'Unable to fetch visa information' });
-    } finally {
-      setLoadingVisa(false);
-    }
-  };
+  // Cache for city-to-country lookups to avoid repeated API calls
+  const [cityCountryCache, setCityCountryCache] = useState({});
 
-  // Fetch visa requirements when both nationality and destinations are available
-  React.useEffect(() => {
-    if (tripData.nationality && tripData.destinations) {
-      fetchVisaRequirements(tripData.nationality, tripData.destinations);
-    }
-  }, [tripData.nationality, tripData.destinations]);
-
-  // List of countries for nationality dropdown
+  // List of countries for nationality dropdown - expanded with VisaDB compatible codes
   const countries = [
+    { code: 'TH', name: 'Thailand' },
     { code: 'US', name: 'United States' },
     { code: 'GB', name: 'United Kingdom' },
     { code: 'DE', name: 'Germany' },
@@ -224,7 +379,6 @@ const Step2CoreDetails = ({ tripData, updateTripData, handleNext, handlePrev, sa
     { code: 'KR', name: 'South Korea' },
     { code: 'SG', name: 'Singapore' },
     { code: 'MY', name: 'Malaysia' },
-    { code: 'TH', name: 'Thailand' },
     { code: 'PH', name: 'Philippines' },
     { code: 'ID', name: 'Indonesia' },
     { code: 'VN', name: 'Vietnam' },
@@ -240,8 +394,690 @@ const Step2CoreDetails = ({ tripData, updateTripData, handleNext, handlePrev, sa
     { code: 'NG', name: 'Nigeria' },
     { code: 'KE', name: 'Kenya' },
     { code: 'EG', name: 'Egypt' },
-    { code: 'MA', name: 'Morocco' }
+    { code: 'MA', name: 'Morocco' },
+    { code: 'TR', name: 'Turkey' },
+    { code: 'AE', name: 'United Arab Emirates' },
+    { code: 'SA', name: 'Saudi Arabia' },
+    { code: 'IL', name: 'Israel' },
+    { code: 'RU', name: 'Russia' },
+    { code: 'UA', name: 'Ukraine' },
+    { code: 'PL', name: 'Poland' },
+    { code: 'CZ', name: 'Czech Republic' },
+    { code: 'HU', name: 'Hungary' },
+    { code: 'PE', name: 'Peru' },
+    { code: 'CO', name: 'Colombia' },
+    { code: 'GH', name: 'Ghana' },
+    { code: 'ET', name: 'Ethiopia' }
   ].sort((a, b) => a.name.localeCompare(b.name));
+
+  // Country to currency mapping function
+  const getCountryCurrency = (countryName) => {
+    const countryCurrencyMap = {
+      // Major economies
+      'United States': 'USD',
+      'China': 'CNY',
+      'Japan': 'JPY',
+      'Germany': 'EUR',
+      'United Kingdom': 'GBP',
+      'France': 'EUR',
+      'India': 'INR',
+      'Italy': 'EUR',
+      'Brazil': 'BRL',
+      'Canada': 'CAD',
+      'Russia': 'RUB',
+      'South Korea': 'KRW',
+      'Australia': 'AUD',
+      'Spain': 'EUR',
+      'Mexico': 'MXN',
+      'Indonesia': 'IDR',
+      'Netherlands': 'EUR',
+      'Saudi Arabia': 'SAR',
+      'Taiwan': 'TWD',
+      'Belgium': 'EUR',
+      'Argentina': 'ARS',
+      'Ireland': 'EUR',
+      'Israel': 'ILS',
+      'Thailand': 'THB',
+      'Nigeria': 'NGN',
+      'Egypt': 'EGP',
+      'South Africa': 'ZAR',
+      'Bangladesh': 'BDT',
+      'Vietnam': 'VND',
+      'Chile': 'CLP',
+      'Finland': 'EUR',
+      'Romania': 'RON',
+      'Czech Republic': 'CZK',
+      'Portugal': 'EUR',
+      'Peru': 'PEN',
+      'New Zealand': 'NZD',
+      'Greece': 'EUR',
+      'Iraq': 'IQD',
+      'Algeria': 'DZD',
+      'Qatar': 'QAR',
+      'Kazakhstan': 'KZT',
+      'Hungary': 'HUF',
+      'Kuwait': 'KWD',
+      'Ukraine': 'UAH',
+      'Morocco': 'MAD',
+      'Slovakia': 'EUR',
+      'Ecuador': 'USD',
+      'Puerto Rico': 'USD',
+      'Angola': 'AOA',
+      'Kenya': 'KES',
+      'Sri Lanka': 'LKR',
+      'Dominican Republic': 'DOP',
+      'Ethiopia': 'ETB',
+      'Guatemala': 'GTQ',
+      'Oman': 'OMR',
+      'Bulgaria': 'BGN',
+      'Myanmar': 'MMK',
+      'Panama': 'USD',
+      'Croatia': 'EUR',
+      'Belarus': 'BYN',
+      'Azerbaijan': 'AZN',
+      'Serbia': 'RSD',
+      'Lithuania': 'EUR',
+      'Tunisia': 'TND',
+      'Slovenia': 'EUR',
+      'Libya': 'LYD',
+      'Uruguay': 'UYU',
+      'Costa Rica': 'CRC',
+      'Lebanon': 'LBP',
+      'Nepal': 'NPR',
+      'Paraguay': 'PYG',
+      'Uganda': 'UGX',
+      'Jordan': 'JOD',
+      'Latvia': 'EUR',
+      'Bolivia': 'BOB',
+      'Bahrain': 'BHD',
+      'Cambodia': 'KHR',
+      'Estonia': 'EUR',
+      'Trinidad and Tobago': 'TTD',
+      'El Salvador': 'USD',
+      'Cyprus': 'EUR',
+      'Honduras': 'HNL',
+      'Papua New Guinea': 'PGK',
+      'Senegal': 'XOF',
+      'Zimbabwe': 'USD',
+      'Bosnia and Herzegovina': 'BAM',
+      'Botswana': 'BWP',
+      'Gabon': 'XAF',
+      'Jamaica': 'JMD',
+      'Albania': 'ALL',
+      'Nicaragua': 'NIO',
+      'Moldova': 'MDL',
+      'Madagascar': 'MGA',
+      'Malta': 'EUR',
+      'Namibia': 'NAD',
+      'Armenia': 'AMD',
+      'Mongolia': 'MNT',
+      'Mozambique': 'MZN',
+      'Benin': 'XOF',
+      'Burkina Faso': 'XOF',
+      'Guinea': 'GNF',
+      'Iceland': 'ISK',
+      'Maldives': 'MVR',
+      'Mali': 'XOF',
+      'Niger': 'XOF',
+      'Chad': 'XAF',
+      'Somalia': 'SOS',
+      'Suriname': 'SRD',
+      'Luxembourg': 'EUR',
+      'Mauritius': 'MUR',
+      
+      // Asian countries
+      'Singapore': 'SGD',
+      'Malaysia': 'MYR',
+      'Philippines': 'PHP',
+      'Hong Kong': 'HKD',
+      'Pakistan': 'PKR',
+      'Turkey': 'TRY',
+      'Iran': 'IRR',
+      'United Arab Emirates': 'AED',
+      
+      // European countries
+      'Switzerland': 'CHF',
+      'Norway': 'NOK',
+      'Sweden': 'SEK',
+      'Denmark': 'DKK',
+      'Poland': 'PLN',
+      'Austria': 'EUR',
+      
+      // African countries
+      'Ghana': 'GHS',
+      'Tanzania': 'TZS',
+      'Cameroon': 'XAF',
+      'Ivory Coast': 'XOF',
+      'Zambia': 'ZMW',
+      'Senegal': 'XOF',
+      'Mali': 'XOF',
+      'Burkina Faso': 'XOF',
+      'Niger': 'XOF',
+      'Guinea': 'GNF',
+      'Benin': 'XOF',
+      'Togo': 'XOF',
+      'Sierra Leone': 'SLL',
+      'Liberia': 'LRD',
+      'Mauritania': 'MRU',
+      'Gambia': 'GMD',
+      'Guinea-Bissau': 'XOF',
+      'Cape Verde': 'CVE',
+      'Sao Tome and Principe': 'STD'
+    };
+    
+    return countryCurrencyMap[countryName] || 'USD'; // Default to USD if country not found
+  };
+
+  // Static exchange rates as fallback (approximate rates)
+  const getStaticExchangeRate = (fromCurrency, toCurrency) => {
+    const staticRates = {
+      // Base rates to USD
+      'USD': 1,
+      'EUR': 0.85,
+      'GBP': 0.73,
+      'JPY': 110,
+      'CNY': 7.2,
+      'THB': 33.5,
+      'SGD': 1.35,
+      'KRW': 1200,
+      'AUD': 1.45,
+      'CAD': 1.25,
+      'CHF': 0.92,
+      'HKD': 7.8,
+      'INR': 75,
+      'MYR': 4.2,
+      'PHP': 50,
+      'VND': 23000,
+      'IDR': 14000
+    };
+
+    const fromRate = staticRates[fromCurrency] || 1;
+    const toRate = staticRates[toCurrency] || 1;
+    const rate = toRate / fromRate;
+
+    return {
+      from: fromCurrency,
+      to: toCurrency,
+      rate: rate,
+      date: new Date().toISOString(),
+      formatted: `1 ${fromCurrency} = ${rate.toFixed(4)} ${toCurrency}`,
+      isStatic: true
+    };
+  };
+
+  // Fetch exchange rate using CurrencyFreaks API with fallback
+  const fetchExchangeRate = async (fromCurrency, toCurrency) => {
+    if (!fromCurrency || !toCurrency || fromCurrency === toCurrency) {
+      setExchangeRate(null);
+      return;
+    }
+
+    setLoadingExchange(true);
+    try {
+      // Try multiple APIs for better reliability
+      let response;
+      let data;
+      
+      // Option 1: CurrencyFreaks API
+      try {
+        const apiKey = 'b9d84cd8ac8648eba47b9569251d26c2';
+        response = await fetch(
+          `https://api.currencyfreaks.com/v2.0/rates/latest?apikey=${apiKey}&symbols=${toCurrency}&base=${fromCurrency}`
+        );
+        
+        if (response.ok) {
+          data = await response.json();
+          if (data.rates && data.rates[toCurrency]) {
+            const rate = parseFloat(data.rates[toCurrency]);
+            setExchangeRate({
+              from: fromCurrency,
+              to: toCurrency,
+              rate: rate,
+              date: data.date,
+              formatted: `1 ${fromCurrency} = ${rate.toFixed(4)} ${toCurrency}`,
+              isStatic: false
+            });
+            console.log('💱 Live exchange rate (CurrencyFreaks):', fromCurrency, '→', toCurrency, '=', rate);
+            return;
+          }
+        } else {
+          console.warn(`CurrencyFreaks API failed with status: ${response.status}`);
+        }
+      } catch (apiError) {
+        console.warn('CurrencyFreaks API error:', apiError.message);
+      }
+      
+      // Option 2: Free Exchange Rate API
+      try {
+        response = await fetch(
+          `https://api.exchangerate-api.com/v4/latest/${fromCurrency}`
+        );
+        
+        if (response.ok) {
+          data = await response.json();
+          if (data.rates && data.rates[toCurrency]) {
+            const rate = parseFloat(data.rates[toCurrency]);
+            setExchangeRate({
+              from: fromCurrency,
+              to: toCurrency,
+              rate: rate,
+              date: data.date,
+              formatted: `1 ${fromCurrency} = ${rate.toFixed(4)} ${toCurrency}`,
+              isStatic: false
+            });
+            console.log('💱 Live exchange rate (ExchangeRate-API):', fromCurrency, '→', toCurrency, '=', rate);
+            return;
+          }
+        }
+             } catch (apiError) {
+         console.warn('ExchangeRate-API error:', apiError.message);
+       }
+      
+      // If all APIs fail, throw error to use fallback
+      console.warn('All exchange rate APIs failed, using static rates');
+      throw new Error('All exchange rate APIs unavailable');
+      
+    } catch (error) {
+      console.warn('Exchange rate API error, using static fallback:', error.message);
+      
+      // Use static exchange rates as fallback
+      const staticRate = getStaticExchangeRate(fromCurrency, toCurrency);
+      setExchangeRate(staticRate);
+      console.log('💱 Static exchange rate:', fromCurrency, '→', toCurrency, '=', staticRate.rate.toFixed(4));
+      
+    } finally {
+      setLoadingExchange(false);
+    }
+  };
+
+  // Map city names to their countries using Countries Now API
+  const mapCityToCountry = async (cityOrCountry) => {
+    // If already cached, return immediately
+    if (cityCountryCache[cityOrCountry]) {
+      return cityCountryCache[cityOrCountry];
+    }
+
+    // If it contains comma, it's already "City, Country" format
+    if (cityOrCountry.includes(',')) {
+      const result = cityOrCountry.split(',').pop().trim();
+      return result;
+    }
+
+    try {
+      // Try to find which country this city belongs to using Countries Now API
+      const response = await fetch('https://countriesnow.space/api/v0.1/countries');
+      const data = await response.json();
+      
+      if (data.error === false && data.data) {
+        // Search through all countries to find which one contains this city
+        for (const countryData of data.data) {
+          const cities = countryData.cities || [];
+          // Case-insensitive search for the city
+          const cityExists = cities.some(city => 
+            city.toLowerCase() === cityOrCountry.toLowerCase()
+          );
+          
+          if (cityExists) {
+            // Cache the result
+            setCityCountryCache(prev => ({
+              ...prev,
+              [cityOrCountry]: countryData.country
+            }));
+            console.log('🌍 API mapped city:', cityOrCountry, '→', countryData.country);
+            return countryData.country;
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Countries Now API error, using fallback:', error);
+    }
+
+    // Fallback: if API fails or city not found, return as-is (assuming it's a country)
+    return cityOrCountry;
+  };
+
+  // Country code mapping for visa API
+  const getCountryCode = (countryName) => {
+    const countryCodeMap = {
+      // Major destinations
+      'China': 'CN',
+      'United States': 'US',
+      'United Kingdom': 'GB',
+      'France': 'FR',
+      'Germany': 'DE',
+      'Italy': 'IT',
+      'Spain': 'ES',
+      'Japan': 'JP',
+      'South Korea': 'KR',
+      'Thailand': 'TH',
+      'Singapore': 'SG',
+      'Malaysia': 'MY',
+      'Indonesia': 'ID',
+      'Philippines': 'PH',
+      'Vietnam': 'VN',
+      'India': 'IN',
+      'Australia': 'AU',
+      'Canada': 'CA',
+      'Brazil': 'BR',
+      'Mexico': 'MX',
+      'Turkey': 'TR',
+      'Egypt': 'EG',
+      'South Africa': 'ZA',
+      'Netherlands': 'NL',
+      'Belgium': 'BE',
+      'Switzerland': 'CH',
+      'Austria': 'AT',
+      'Sweden': 'SE',
+      'Norway': 'NO',
+      'Denmark': 'DK',
+      'Finland': 'FI',
+      'Greece': 'GR',
+      'Portugal': 'PT',
+      'Czech Republic': 'CZ',
+      'Hungary': 'HU',
+      'Poland': 'PL',
+      'Russia': 'RU',
+      'Ukraine': 'UA',
+      'United Arab Emirates': 'AE',
+      'Saudi Arabia': 'SA',
+      'Israel': 'IL',
+      'Hong Kong': 'HK',
+      'Taiwan': 'TW',
+      'New Zealand': 'NZ',
+      'Argentina': 'AR',
+      'Chile': 'CL',
+      'Peru': 'PE',
+      'Colombia': 'CO',
+      'Morocco': 'MA',
+      'Kenya': 'KE',
+      'Nigeria': 'NG',
+      'Ghana': 'GH',
+      'Ethiopia': 'ET'
+    };
+    
+    return countryCodeMap[countryName] || countryName.substring(0, 2).toUpperCase();
+  };
+
+  const fetchVisaRequirements = async (nationality, destinations) => {
+    if (!nationality || !destinations) return;
+    
+    setLoadingVisa(true);
+    // Aggressively clear any existing visa requirements first
+    setVisaRequirements({});
+    
+    console.log('🧹 Cleared visa requirements, starting fresh lookup...');
+    
+    // Also clear city-country cache to prevent stale data
+    setCityCountryCache({});
+    
+    try {
+      // Split destinations and extract unique countries only
+      const destinationList = destinations.split(',').map(d => d.trim());
+      const uniqueCountries = new Set();
+      const visaInfo = {};
+      
+      // Extract unique countries from destinations (handle async mapping)
+      const countryPromises = destinationList.map(async (destination) => {
+        // If destination contains comma, it's "City, Country" format - extract only the country
+        if (destination.includes(',')) {
+          return destination.split(',').pop().trim();
+        } else {
+          // If no comma, check if it's a known city and map it to country, otherwise treat as country
+          return await mapCityToCountry(destination);
+        }
+      });
+
+      // Wait for all country mappings to complete
+      const resolvedCountries = await Promise.all(countryPromises);
+      console.log('✅ Processing destinations:', destinations, '→ Countries:', resolvedCountries);
+      
+      // Filter out any empty or invalid countries and add to set
+      resolvedCountries.forEach(country => {
+        if (country && country.trim() && country !== 'undefined' && country !== 'null') {
+          uniqueCountries.add(country.trim());
+        }
+      });
+      
+      // Process visa requirements for each unique country
+              for (const countryName of uniqueCountries) {
+        // Skip if country name is suspicious or doesn't match expected destinations
+        if (!countryName || countryName.length < 2) {
+          continue;
+        }
+        try {
+          const destCountryCode = getCountryCode(countryName);
+          console.log(`🔍 Processing visa: ${nationality} → ${countryName} (${destCountryCode})`);
+          
+          // Try VisaDB API first, but handle CORS and other issues
+          let visaStatus = 'Information not available';
+          
+          try {
+            const response = await fetch(`https://api.visadb.io/visa/${nationality}/${destCountryCode}`, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              },
+              mode: 'cors'
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              
+              // Format the visa requirement based on API response
+              if (data && data.requirement) {
+                switch (data.requirement) {
+                  case 'visa_required':
+                    visaStatus = '🔴 Visa Required - Apply before travel';
+                    break;
+                  case 'visa_free':
+                    visaStatus = '🟢 Visa Free Entry';
+                    break;
+                  case 'visa_on_arrival':
+                    visaStatus = '🟡 Visa on Arrival Available';
+                    break;
+                  case 'eta':
+                  case 'evisa':
+                    visaStatus = '🟡 Electronic Visa/ETA Required';
+                    break;
+                  case 'no_admission':
+                    visaStatus = '🔴 No Admission - Entry Not Permitted';
+                    break;
+                  default:
+                    visaStatus = data.requirement || 'Information not available';
+                }
+                
+                // Add duration if available
+                if (data.max_stay) {
+                  visaStatus += ` (Max stay: ${data.max_stay} days)`;
+                }
+              }
+            } else if (response.status === 404) {
+              visaStatus = '⚠️ Visa information not available for this destination';
+            } else {
+              throw new Error(`API returned status: ${response.status}`);
+            }
+          } catch (apiError) {
+            console.warn(`VisaDB API failed for ${countryName}:`, apiError);
+            
+            // Fallback to static visa information based on common knowledge
+            visaStatus = getStaticVisaInfo(nationality, countryName);
+          }
+          
+          // Store visa info by country name only
+          visaInfo[countryName] = visaStatus;
+        } catch (err) {
+          console.error(`Error processing visa info for ${countryName}:`, err);
+          // Fallback to basic message for any errors
+          visaInfo[countryName] = '⚠️ Check with embassy - Unable to verify requirements';
+        }
+      }
+      
+      // Validate final results - ensure we only have countries that should be there
+      const validatedVisaInfo = {};
+      const destinationCountriesSet = new Set(Array.from(uniqueCountries).map(c => c.trim()));
+      
+      console.log('🔍 Expected countries from destinations:', Array.from(destinationCountriesSet));
+      console.log('🔍 Raw visa info before validation:', visaInfo);
+      
+      Object.entries(visaInfo).forEach(([country, requirement]) => {
+        // Extra aggressive filtering - block Philippines specifically if not in destinations
+        if (country.toLowerCase().includes('philippines') && !destinationCountriesSet.has(country.trim())) {
+          console.warn('🚫 BLOCKED Philippines - not in destinations!');
+          return;
+        }
+        
+        if (destinationCountriesSet.has(country.trim())) {
+          validatedVisaInfo[country] = requirement;
+          console.log('✅ Added valid country:', country);
+        } else {
+          console.warn('⚠️ Filtered out unexpected country:', country, '(not in:', Array.from(destinationCountriesSet), ')');
+        }
+      });
+      
+      // Emergency filter: Remove Philippines if not explicitly in original destinations
+      if (validatedVisaInfo['Philippines'] && !destinations.toLowerCase().includes('philippines')) {
+        console.warn('🚫 EMERGENCY FILTER: Removing Philippines (not in original destinations)');
+        delete validatedVisaInfo['Philippines'];
+      }
+      
+      console.log('✅ Final visa requirements (after emergency filter):', validatedVisaInfo);
+      setVisaRequirements(validatedVisaInfo);
+    } catch (error) {
+      console.error('Error fetching visa requirements:', error);
+      setVisaRequirements({ error: 'Unable to fetch visa information. Please check with relevant embassies.' });
+    } finally {
+      setLoadingVisa(false);
+    }
+  };
+
+  // Static fallback visa information for common country combinations
+  const getStaticVisaInfo = (nationalityCode, destinationCountry) => {
+    const staticVisaData = {
+      // Thai citizens
+      'TH': {
+        'China': '🔴 Visa Required - Apply before travel (Tourist visa needed)',
+        'Japan': '🟢 Visa Free Entry (30 days for tourism)',
+        'South Korea': '🟢 Visa Free Entry (90 days)',
+        'Singapore': '🟢 Visa Free Entry (30 days)',
+        'Malaysia': '🟢 Visa Free Entry (30 days)',
+        'United States': '🔴 Visa Required - Apply before travel (ESTA or B1/B2 visa)',
+        'United Kingdom': '🔴 Visa Required - Apply before travel',
+        'Germany': '🟢 Visa Free Entry (90 days in Schengen area)',
+        'France': '🟢 Visa Free Entry (90 days in Schengen area)',
+        'Australia': '🟡 Electronic Visa/ETA Required (eVisitor)',
+        'Canada': '🟡 Electronic Visa/ETA Required (eTA)'
+      },
+      // Chinese citizens
+      'CN': {
+        'Thailand': '🟢 Visa Free Entry (30 days for tourism)',
+        'Japan': '🔴 Visa Required - Apply before travel',
+        'South Korea': '🔴 Visa Required - Apply before travel',
+        'Singapore': '🟢 Visa Free Entry (30 days)',
+        'United States': '🔴 Visa Required - Apply before travel (B1/B2 visa)',
+        'United Kingdom': '🔴 Visa Required - Apply before travel',
+        'Germany': '🔴 Visa Required - Apply before travel (Schengen visa)',
+        'France': '🔴 Visa Required - Apply before travel (Schengen visa)'
+      },
+      // US citizens
+      'US': {
+        'China': '🔴 Visa Required - Apply before travel (Tourist L visa)',
+        'Thailand': '🟢 Visa Free Entry (30 days for tourism)',
+        'Japan': '🟢 Visa Free Entry (90 days)',
+        'South Korea': '🟢 Visa Free Entry (90 days)',
+        'Singapore': '🟢 Visa Free Entry (90 days)',
+        'Germany': '🟢 Visa Free Entry (90 days in Schengen area)',
+        'France': '🟢 Visa Free Entry (90 days in Schengen area)',
+        'United Kingdom': '🟢 Visa Free Entry (90 days)'
+      }
+    };
+
+    const countryData = staticVisaData[nationalityCode];
+    if (countryData && countryData[destinationCountry]) {
+      return countryData[destinationCountry] + ' (Static data - verify with embassy)';
+    }
+
+    return '⚠️ Please check with embassy - Visa requirements vary by nationality and destination';
+  };
+
+  // Fetch visa requirements when both nationality and destinations are available (with debouncing)
+      React.useEffect(() => {
+      const loadVisaData = async () => {
+        // Only process if we have complete data and destinations looks complete
+        if (tripData.nationality && tripData.destinations && 
+            tripData.destinations.trim().length > 3 && 
+            (tripData.destinations.includes(',') || tripData.destinations.trim().length > 6)) {
+          console.log('🔍 Visa lookup:', tripData.nationality, '→', tripData.destinations);
+          await fetchVisaRequirements(tripData.nationality, tripData.destinations);
+        } else {
+          // Clear visa requirements if either nationality or destinations is missing/incomplete
+          setVisaRequirements(null);
+        }
+      };
+      
+      // Debounce the visa requirements fetch to avoid excessive API calls
+      const timeoutId = setTimeout(() => {
+        loadVisaData();
+      }, 1000); // Wait 1 second after user stops typing
+      
+      return () => clearTimeout(timeoutId);
+    }, [tripData.nationality, tripData.destinations]);
+
+  // Auto-update base currency when nationality changes
+  React.useEffect(() => {
+    if (tripData.nationality) {
+      const nationalityCountry = countries.find(country => country.code === tripData.nationality)?.name;
+      if (nationalityCountry) {
+        const currency = getCountryCurrency(nationalityCountry);
+        setBaseCurrency(currency);
+        console.log('🏠 Nationality currency updated:', nationalityCountry, '→', currency);
+      }
+    }
+  }, [tripData.nationality]);
+
+  // Auto-update target currency when destinations change
+  React.useEffect(() => {
+    const updateTargetCurrency = async () => {
+      if (tripData.destinations && tripData.destinations.trim().length > 3) {
+        try {
+          const destinationList = tripData.destinations.split(',').map(d => d.trim());
+          if (destinationList.length > 0) {
+            let destinationCountry = destinationList[0];
+            
+            // If it's "City, Country" format, extract country
+            if (destinationCountry.includes(',')) {
+              destinationCountry = destinationCountry.split(',').pop().trim();
+            } else {
+              // Use the mapCityToCountry function to resolve city to country
+              destinationCountry = await mapCityToCountry(destinationCountry);
+            }
+            
+            const currency = getCountryCurrency(destinationCountry);
+            setTargetCurrency(currency);
+            
+            // Auto-update the budget currency if not manually set
+            if (!tripData.currency || tripData.currency === 'USD') {
+              updateTripData({ currency: currency });
+            }
+            
+            console.log('🎯 Destination currency updated:', destinationCountry, '→', currency);
+          }
+        } catch (error) {
+          console.error('Error updating target currency:', error);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(updateTargetCurrency, 1000); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [tripData.destinations]);
+
+  // Fetch exchange rate when currencies change
+  React.useEffect(() => {
+    if (baseCurrency && targetCurrency && baseCurrency !== targetCurrency) {
+      fetchExchangeRate(baseCurrency, targetCurrency);
+    }
+  }, [baseCurrency, targetCurrency]);
 
   return (
     <div className="space-y-4">
@@ -265,13 +1101,15 @@ const Step2CoreDetails = ({ tripData, updateTripData, handleNext, handlePrev, sa
         <p className="text-xs text-gray-500 mt-1">This helps us provide visa requirement information</p>
       </div>
       
-      <InputField
+      {/* Replace the regular input with LocationAutocomplete */}
+      <LocationAutocomplete
         label="Primary Destination(s)"
-        name="destinations"
         value={tripData.destinations}
-        onChange={(e) => updateTripData({ destinations: e.target.value })}
-        placeholder="e.g., Paris, Rome"
+        onChange={(value) => updateTripData({ destinations: value })}
+        placeholder="e.g., Guangzhou, China or Paris, France"
+        required
       />
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Start Date</label>
@@ -319,12 +1157,21 @@ const Step2CoreDetails = ({ tripData, updateTripData, handleNext, handlePrev, sa
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Currency</label>
+          <label className="block text-sm font-medium text-gray-700">Budget Currency</label>
           <select 
-            value={tripData.currency || 'USD'} 
+            value={tripData.currency || targetCurrency || 'USD'} 
             onChange={(e) => updateTripData({ currency: e.target.value })}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           >
+            {/* Show user's nationality currency first if different from target */}
+            {baseCurrency && baseCurrency !== targetCurrency && (
+              <option value={baseCurrency}>{baseCurrency} (Your Currency)</option>
+            )}
+            {/* Show destination currency */}
+            {targetCurrency && (
+              <option value={targetCurrency}>{targetCurrency} (Destination Currency)</option>
+            )}
+            {/* Common currencies */}
             <option value="USD">USD ($)</option>
             <option value="EUR">EUR (€)</option>
             <option value="GBP">GBP (£)</option>
@@ -333,9 +1180,84 @@ const Step2CoreDetails = ({ tripData, updateTripData, handleNext, handlePrev, sa
             <option value="CAD">CAD ($)</option>
             <option value="AUD">AUD ($)</option>
             <option value="THB">THB (฿)</option>
+            <option value="SGD">SGD ($)</option>
+            <option value="HKD">HKD ($)</option>
+            <option value="KRW">KRW (₩)</option>
+            <option value="INR">INR (₹)</option>
+            <option value="MYR">MYR (RM)</option>
+            <option value="PHP">PHP (₱)</option>
+            <option value="VND">VND (₫)</option>
+            <option value="IDR">IDR (Rp)</option>
           </select>
+          <p className="text-xs text-gray-500 mt-1">
+            💡 Auto-detected from your nationality and destination
+          </p>
         </div>
       </div>
+      
+      {/* Exchange Rate Display */}
+      {(baseCurrency && targetCurrency && baseCurrency !== targetCurrency) && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+          <h4 className="font-semibold text-green-800 mb-2 flex items-center">
+            💱 Exchange Rate Information
+            {loadingExchange && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
+          </h4>
+          {loadingExchange ? (
+            <p className="text-green-600 text-sm">Getting latest exchange rates...</p>
+          ) : exchangeRate ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-700">
+                    {exchangeRate.formatted}
+                    {exchangeRate.isStatic && (
+                      <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full">
+                        APPROX
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-green-600">
+                    {exchangeRate.isStatic ? 
+                      'Approximate rates - Live rates temporarily unavailable' : 
+                      `Updated: ${new Date(exchangeRate.date).toLocaleDateString()}`
+                    }
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-green-600">Your Currency → Destination</p>
+                  <p className="text-sm font-medium text-green-700">
+                    {baseCurrency} → {targetCurrency}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Budget Conversion Preview */}
+              {tripData.budget_amount && tripData.budget_amount > 0 && (
+                <div className="mt-3 p-3 bg-white rounded border border-green-200">
+                  <p className="text-xs text-green-600 mb-1">Budget Conversion Preview:</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-700">
+                      {tripData.budget_amount.toLocaleString()} {tripData.currency || targetCurrency}
+                    </span>
+                    <span className="text-sm font-medium text-green-700">
+                      ≈ {baseCurrency !== (tripData.currency || targetCurrency) 
+                        ? (tripData.budget_amount / exchangeRate.rate).toLocaleString(undefined, {maximumFractionDigits: 0})
+                        : (tripData.budget_amount * exchangeRate.rate).toLocaleString(undefined, {maximumFractionDigits: 0})
+                      } {baseCurrency !== (tripData.currency || targetCurrency) ? baseCurrency : targetCurrency}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-xs text-green-600 mt-2">
+                💡 Exchange rates update every 24 hours. Rates may vary at time of exchange.
+              </p>
+            </div>
+          ) : (
+            <p className="text-gray-600 text-sm">Exchange rate information not available</p>
+          )}
+        </div>
+      )}
       
       {/* Visa Requirements Display */}
       {tripData.nationality && tripData.destinations && (
@@ -351,9 +1273,7 @@ const Step2CoreDetails = ({ tripData, updateTripData, handleNext, handlePrev, sa
               <p className="text-red-600 text-sm">{visaRequirements.error}</p>
             ) : (
               <div className="space-y-2">
-                {tripData.destinations.split(',').map((dest, index) => {
-                  const country = dest.trim();
-                  const requirement = visaRequirements[country] || 'Information not available';
+                {Object.entries(visaRequirements).map(([country, requirement], index) => {
                   return (
                     <div key={index} className="text-sm">
                       <span className="font-medium">{country}:</span>{' '}
@@ -1642,6 +2562,8 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
   // Calendar and location state for activities
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
+  const [selectedTime, setSelectedTime] = useState('09:00');
+  const [selectedDuration, setSelectedDuration] = useState(2);
   const [selectedActivities, setSelectedActivities] = useState([]);
   
   // Local guide popup state
@@ -1658,6 +2580,7 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
   const [showAIAutoSelect, setShowAIAutoSelect] = useState(false);
   const [aiAutoSelectResults, setAiAutoSelectResults] = useState(null);
   const [loadingAutoSelect, setLoadingAutoSelect] = useState(false);
+  const [selectedAIActivities, setSelectedAIActivities] = useState(new Set());
   
   // Guide popup control - show only once per session
   const [hasShownGuidePopup, setHasShownGuidePopup] = useState(false);
@@ -1829,7 +2752,8 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
             location: { city: city },
             price: 45.00,
             currency: tripData.currency || 'USD',
-            duration: '3 hours',
+            duration: 3,
+            activity_time: '09:00',
             rating: 4.8,
             category: 'Culture & History',
             timeSlot: 'Morning (9:00 AM - 12:00 PM)',
@@ -1842,10 +2766,11 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
             location: { city: city },
             price: 65.00,
             currency: tripData.currency || 'USD',
-            duration: '2.5 hours',
+            duration: 2,
+            activity_time: '18:00',
             rating: 4.9,
             category: 'Food & Dining',
-            timeSlot: 'Evening (6:00 PM - 8:30 PM)',
+            timeSlot: 'Evening (6:00 PM - 8:00 PM)',
             highlights: ['Local cuisine', 'Traditional dishes', 'Restaurant recommendations']
           },
           {
@@ -1855,7 +2780,8 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
             location: { city: city },
             price: 80.00,
             currency: tripData.currency || 'USD',
-            duration: '4 hours',
+            duration: 4,
+            activity_time: '14:00',
             rating: 4.7,
             category: 'Adventure & Outdoors',
             timeSlot: 'Afternoon (2:00 PM - 6:00 PM)',
@@ -1890,32 +2816,45 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
   };
 
   // Function to apply AI auto-selected activities
-  const applyAIAutoSelection = () => {
+  const applyAIAutoSelection = (selectedKeys = null) => {
     if (!aiAutoSelectResults) return;
     
     const allActivities = [];
     Object.values(aiAutoSelectResults).forEach(day => {
-      day.activities.forEach(activity => {
-        allActivities.push({
-          ...activity,
-          component_type: 'activity',
-          activity_date: day.date,
-          status: 'planned',
-          booking_date: new Date().toISOString()
-        });
+      day.activities.forEach((activity, actIndex) => {
+        const activityKey = `${day.date}-${actIndex}`;
+        
+        // If selectedKeys is provided, only include selected activities
+        // If selectedKeys is null (legacy call), include all activities
+        if (!selectedKeys || selectedKeys.has(activityKey)) {
+          allActivities.push({
+            ...activity,
+            component_type: 'activity',
+            activity_date: day.date,
+            status: 'planned',
+            booking_date: new Date().toISOString()
+          });
+        }
       });
     });
+    
+    if (allActivities.length === 0) {
+      toast.error("Please select at least one activity to apply.");
+      return;
+    }
     
     // Add to selected activities
     setSelectedActivities(prev => [...prev, ...allActivities]);
     
     // Update trip data
-    const nonActivityComponents = (tripData.components || []).filter(c => c.component_type !== 'activity');
-    const allComponents = [...nonActivityComponents, ...allActivities];
+    const nonActivityComponents = (tripData.components || []).filter(c => c.component_type !== 'activity' && c.component_type !== 'poi');
+    const allComponents = [...nonActivityComponents, ...selectedActivities, ...allActivities];
     updateTripData({ components: allComponents });
     
-    // Close popup and show success
+    // Clear selections and close popup
+    setSelectedAIActivities(new Set());
     setShowAIAutoSelect(false);
+    
     toast.success(`Added ${allActivities.length} AI-selected activities to your trip!`);
   };
 
@@ -2090,8 +3029,8 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
   const handleAddComponent = async (selectedItem) => {
     if (!tripId) { toast.error("Trip ID is missing."); return; }
     
-    if (!selectedDate || !selectedLocation) {
-      toast.error("Please select a date and location for this activity.");
+    if (!selectedDate || !selectedLocation || !selectedTime) {
+      toast.error("Please select a date, time, and location for this activity.");
       return;
     }
     
@@ -2110,6 +3049,8 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
         category: selectedItem.category || (searchType === 'activities' ? 'Activity' : 'Point of Interest'),
         location: { city: selectedLocation },
         activity_date: selectedDate,
+        activity_time: selectedTime,
+        duration: selectedDuration,
         booking_date: new Date().toISOString()
       };
       
@@ -2120,7 +3061,7 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
       const nonActivityComponents = (tripData.components || []).filter(c => c.component_type !== 'activity' && c.component_type !== 'poi');
       updateTripData({ components: [...nonActivityComponents, ...updatedSelectedActivities] });
       
-      toast.success(`${searchType === 'activities' ? 'Activity' : 'Point of Interest'} added to your trip!`);
+      toast.success(`${searchType === 'activities' ? 'Activity' : 'Point of Interest'} added to your trip for ${selectedTime}!`);
     } catch (err) {
       toast.error(`Failed to add ${searchType === 'activities' ? 'activity' : 'POI'} to trip.`);
     }
@@ -2141,7 +3082,7 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
     <div className="space-y-6">
       <h3 className="text-lg font-medium">Find Activities & Points of Interest</h3>
       
-      {/* Current Activity Bookings */}
+      {/* Current Activity Bookings - Organized by Day */}
       {selectedActivities.length > 0 && (
         <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
           <div className="flex justify-between items-center mb-3">
@@ -2160,34 +3101,140 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
               Clear All
             </button>
           </div>
-          <div className="space-y-3">
-            {selectedActivities.map((activity, index) => (
-              <div key={activity.id || index} className="p-3 bg-white rounded border shadow-sm">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <p className="font-medium text-lg">{activity.title}</p>
-                    <p className="text-sm text-gray-600">
-                      📍 {activity.location?.city} • 📅 {new Date(activity.activity_date).toLocaleDateString()}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      🏷️ {activity.category}
-                    </p>
-                    {activity.price > 0 && (
-                      <p className="text-sm font-semibold text-green-600 mt-1">
-                        💰 {activity.currency} {activity.price.toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => removeActivityBooking(activity.id)}
-                    className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                  >
-                    Remove
-                  </button>
-                </div>
+          
+          {/* Group activities by date */}
+          {(() => {
+            const activitiesByDate = selectedActivities.reduce((acc, activity) => {
+              const date = activity.activity_date;
+              if (!acc[date]) {
+                acc[date] = [];
+              }
+              acc[date].push(activity);
+              return acc;
+            }, {});
+
+            // Sort dates
+            const sortedDates = Object.keys(activitiesByDate).sort((a, b) => new Date(a) - new Date(b));
+
+            return (
+              <div className="space-y-4">
+                {sortedDates.map(date => {
+                  const activities = activitiesByDate[date];
+                  const formatDateDisplay = (dateString) => {
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const dateObj = new Date(dateString);
+                    return `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+                  };
+
+                  // Sort activities by time for each day
+                  const sortedActivities = activities.sort((a, b) => {
+                    const timeA = a.activity_time || '09:00';
+                    const timeB = b.activity_time || '09:00';
+                    return timeA.localeCompare(timeB);
+                  });
+
+                  return (
+                    <div key={date} className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                      <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-3 rounded-t-lg">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-bold">📅</span>
+                          </div>
+                          <div>
+                            <h5 className="font-semibold text-lg">{formatDateDisplay(date)}</h5>
+                            <p className="text-sm text-blue-100">{activities.length} {activities.length === 1 ? 'activity' : 'activities'} planned</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="p-3 space-y-3">
+                        {sortedActivities.map((activity, index) => (
+                          <div key={activity.id || index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                            <div className="flex-shrink-0">
+                              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-xl flex flex-col items-center justify-center border-2 border-blue-200">
+                                <span className="text-xs font-semibold text-blue-600">
+                                  {(() => {
+                                    const time = activity.activity_time || '09:00';
+                                    const [hours, minutes] = time.split(':');
+                                    const hour12 = parseInt(hours) > 12 ? parseInt(hours) - 12 : parseInt(hours);
+                                    const ampm = parseInt(hours) >= 12 ? 'PM' : 'AM';
+                                    const displayHour = hour12 === 0 ? 12 : hour12;
+                                    return `${displayHour}:${minutes}`;
+                                  })()}
+                                </span>
+                                <span className="text-xs text-blue-500 font-medium">
+                                  {(() => {
+                                    const time = activity.activity_time || '09:00';
+                                    const [hours] = time.split(':');
+                                    return parseInt(hours) >= 12 ? 'PM' : 'AM';
+                                  })()}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <h6 className="font-medium text-lg text-gray-900 mb-1">{activity.title}</h6>
+                                  <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 mb-2">
+                                    <span className="flex items-center">
+                                      📍 {activity.location?.city}
+                                    </span>
+                                    <span className="flex items-center">
+                                      🏷️ {activity.category}
+                                    </span>
+                                    <span className="flex items-center">
+                                      ⏰ {(() => {
+                                        const startTime = activity.activity_time || '09:00';
+                                        const [startHours, startMinutes] = startTime.split(':').map(Number);
+                                        const duration = activity.duration || 2; // Default 2 hours
+                                        const endHours = startHours + duration;
+                                        
+                                        // Convert to 12-hour format
+                                        const formatTime = (hours, minutes) => {
+                                          const displayHour = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
+                                          const ampm = hours >= 12 ? 'PM' : 'AM';
+                                          return `${displayHour}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+                                        };
+                                        
+                                        const startFormatted = formatTime(startHours, startMinutes);
+                                        const endFormatted = formatTime(endHours, startMinutes);
+                                        
+                                        return `${startFormatted} - ${endFormatted}`;
+                                      })()} ({activity.duration || 2}h)
+                                    </span>
+                                  </div>
+                                  
+                                  {activity.description && (
+                                    <p className="text-sm text-gray-500 mb-2 line-clamp-2">{activity.description}</p>
+                                  )}
+                                  
+                                  {activity.price > 0 && (
+                                    <div className="flex items-center space-x-2">
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        💰 {activity.currency} {activity.price.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                <button
+                                  onClick={() => removeActivityBooking(activity.id)}
+                                  className="ml-2 px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
       )}
 
@@ -2245,10 +3292,10 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
           AI Auto-Select All
         </button>
       </div>
-      {/* Date and Location Selection for Activities */}
+      {/* Date, Time and Location Selection for Activities */}
       <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg mb-4">
-        <h4 className="font-semibold text-indigo-800 mb-3">📅 Select Date & Location for Activity</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h4 className="font-semibold text-indigo-800 mb-3">📅 Select Date, Time & Location for Activity</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Activity Date</label>
             <input
@@ -2261,6 +3308,27 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
             />
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Activity Time</label>
+            <select
+              value={selectedTime}
+              onChange={(e) => setSelectedTime(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="08:00">08:00 AM - Early Morning</option>
+              <option value="09:00">09:00 AM - Morning</option>
+              <option value="10:00">10:00 AM - Late Morning</option>
+              <option value="11:00">11:00 AM - Pre-Noon</option>
+              <option value="12:00">12:00 PM - Noon</option>
+              <option value="13:00">01:00 PM - Afternoon</option>
+              <option value="14:00">02:00 PM - Mid Afternoon</option>
+              <option value="15:00">03:00 PM - Late Afternoon</option>
+              <option value="16:00">04:00 PM - Evening</option>
+              <option value="17:00">05:00 PM - Late Evening</option>
+              <option value="18:00">06:00 PM - Dinner Time</option>
+              <option value="19:00">07:00 PM - Night</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
             <input
               type="text"
@@ -2271,8 +3339,23 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
             />
           </div>
         </div>
-        {(!selectedDate || !selectedLocation) && (
-          <p className="text-xs text-indigo-600 mt-2">⚠️ Please select both date and location before adding activities</p>
+        <div className="mt-3">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Expected Duration (hours)</label>
+          <select
+            value={selectedDuration}
+            onChange={(e) => setSelectedDuration(parseInt(e.target.value))}
+            className="w-full md:w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value={1}>1 hour</option>
+            <option value={2}>2 hours</option>
+            <option value={3}>3 hours</option>
+            <option value={4}>4 hours</option>
+            <option value={6}>6 hours (Half day)</option>
+            <option value={8}>8 hours (Full day)</option>
+          </select>
+        </div>
+        {(!selectedDate || !selectedLocation || !selectedTime) && (
+          <p className="text-xs text-indigo-600 mt-2">⚠️ Please select date, time, and location before adding activities</p>
         )}
       </div>
 
@@ -2571,34 +3654,64 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {day.activities.map((activity, actIndex) => (
-                          <div key={actIndex} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div className="flex items-start justify-between mb-2">
-                              <h5 className="font-semibold text-gray-800 text-sm">{activity.title}</h5>
-                              <span className="text-green-600 font-bold text-sm">${activity.price}</span>
-                            </div>
-                            
-                            <p className="text-xs text-gray-600 mb-2">{activity.description}</p>
-                            
-                            <div className="flex items-center text-xs text-gray-500 space-x-3 mb-2">
-                              <span>⭐ {activity.rating}</span>
-                              <span>🕐 {activity.duration}</span>
-                              <span>📍 {activity.location.city}</span>
-                            </div>
-                            
-                            <div className="text-xs">
-                              <span className="inline-block bg-blue-100 text-blue-700 px-2 py-1 rounded mb-1 mr-1">
-                                {activity.category}
-                              </span>
-                              <div className="text-gray-600 mt-1">
-                                <strong>Time:</strong> {activity.timeSlot}
+                        {day.activities.map((activity, actIndex) => {
+                          const activityKey = `${day.date}-${actIndex}`;
+                          const isSelected = selectedAIActivities.has(activityKey);
+                          
+                          return (
+                            <div 
+                              key={actIndex} 
+                              className={`bg-white border-2 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${
+                                isSelected 
+                                  ? 'border-green-500 bg-green-50 shadow-md' 
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                              onClick={() => {
+                                const newSelected = new Set(selectedAIActivities);
+                                if (isSelected) {
+                                  newSelected.delete(activityKey);
+                                } else {
+                                  newSelected.add(activityKey);
+                                }
+                                setSelectedAIActivities(newSelected);
+                              }}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center">
+                                  <div className={`w-5 h-5 rounded border-2 mr-2 flex items-center justify-center ${
+                                    isSelected 
+                                      ? 'bg-green-500 border-green-500' 
+                                      : 'border-gray-300'
+                                  }`}>
+                                    {isSelected && <span className="text-white text-xs">✓</span>}
+                                  </div>
+                                  <h5 className="font-semibold text-gray-800 text-sm">{activity.title}</h5>
+                                </div>
+                                <span className="text-green-600 font-bold text-sm">${activity.price}</span>
                               </div>
-                              <div className="text-gray-600">
-                                <strong>Highlights:</strong> {activity.highlights.join(', ')}
+                              
+                              <p className="text-xs text-gray-600 mb-2 ml-7">{activity.description}</p>
+                              
+                              <div className="flex items-center text-xs text-gray-500 space-x-3 mb-2 ml-7">
+                                <span>⭐ {activity.rating}</span>
+                                <span>🕐 {activity.duration}h</span>
+                                <span>📍 {activity.location.city}</span>
+                              </div>
+                              
+                              <div className="text-xs ml-7">
+                                <span className="inline-block bg-blue-100 text-blue-700 px-2 py-1 rounded mb-1 mr-1">
+                                  {activity.category}
+                                </span>
+                                <div className="text-gray-600 mt-1">
+                                  <strong>Time:</strong> {activity.timeSlot}
+                                </div>
+                                <div className="text-gray-600">
+                                  <strong>Highlights:</strong> {activity.highlights.join(', ')}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -2617,20 +3730,54 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
                   </div>
                 </div>
                 
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button 
-                    onClick={() => setShowAIAutoSelect(false)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
-                  >
-                    Review Later
-                  </button>
-                  <button 
-                    onClick={applyAIAutoSelection}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center"
-                  >
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Apply All Activities
-                  </button>
+                <div className="mt-6 flex justify-between items-center">
+                  <div className="text-sm text-gray-600">
+                    {selectedAIActivities.size > 0 ? (
+                      <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full">
+                        {selectedAIActivities.size} activities selected
+                      </span>
+                    ) : (
+                      <span>Click on activities to select them for your trip</span>
+                    )}
+                  </div>
+                  
+                  <div className="flex space-x-3">
+                    <button 
+                      onClick={() => {
+                        // Select all activities
+                        const allActivities = new Set();
+                        Object.values(aiAutoSelectResults).forEach((day, dayIndex) => {
+                          day.activities.forEach((activity, actIndex) => {
+                            allActivities.add(`${day.date}-${actIndex}`);
+                          });
+                        });
+                        setSelectedAIActivities(allActivities);
+                      }}
+                      className="px-3 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm"
+                    >
+                      Select All
+                    </button>
+                    <button 
+                      onClick={() => setSelectedAIActivities(new Set())}
+                      className="px-3 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm"
+                    >
+                      Clear All
+                    </button>
+                    <button 
+                      onClick={() => setShowAIAutoSelect(false)}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+                    >
+                      Review Later
+                    </button>
+                    <button 
+                      onClick={() => applyAIAutoSelection(selectedAIActivities)}
+                      disabled={selectedAIActivities.size === 0}
+                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Apply Selected ({selectedAIActivities.size})
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3486,12 +4633,19 @@ const Step8Review = ({ tripData, handlePrev, handleNext, saveTripProgress, token
                 comp.component_type === 'hotel' && comp.check_in_date === dateStr
             );
             
-            // Get flights for this date
-            const flights = (tripData.components || []).filter(comp => 
-                comp.component_type === 'flight' && 
-                (comp.flight_details?.itineraries?.[0]?.segments?.[0]?.departure?.at?.startsWith(dateStr) ||
-                 comp.departure_date === dateStr)
-            );
+            // Get flights for this date (enhanced detection)
+            const flights = (tripData.components || []).filter(comp => {
+                if (comp.component_type !== 'flight') return false;
+                
+                // Check multiple date fields
+                const flightDate = comp.departure_date || 
+                                 comp.flight_details?.departure_date ||
+                                 comp.flight_details?.itineraries?.[0]?.segments?.[0]?.departure?.at?.split('T')[0] ||
+                                 comp.start_date ||
+                                 comp.date;
+                
+                return flightDate === dateStr;
+            });
             
             // Get guides for this trip (not date-specific but general)
             const guides = (tripData.components || []).filter(comp => 
@@ -3569,20 +4723,51 @@ const Step8Review = ({ tripData, handlePrev, handleNext, saveTripProgress, token
                                 ✈️ Flight
                             </span>
                             <div className="space-y-1">
-                                {day.flights.map((flight, fIdx) => (
-                                    <div key={fIdx} className="text-gray-700 text-xs">
-                                        <p className="font-medium">{flight.title}</p>
-                                        <p className="text-gray-600">
-                                            💰 {flight.currency} {flight.price?.toFixed(2)} • 
-                                            🕐 {flight.start_time || 'N/A'} - {flight.end_time || 'N/A'}
-                                        </p>
-                                        {flight.flight_details?.itineraries?.[0]?.segments?.[0] && (
-                                            <p className="text-gray-500">
-                                                {flight.flight_details.itineraries[0].segments[0].departure?.iataCode} → {flight.flight_details.itineraries[0].segments[flight.flight_details.itineraries[0].segments.length - 1]?.arrival?.iataCode}
+                                {day.flights.map((flight, fIdx) => {
+                                    const segment = flight.flight_details?.itineraries?.[0]?.segments?.[0];
+                                    const lastSegment = flight.flight_details?.itineraries?.[0]?.segments?.[flight.flight_details?.itineraries?.[0]?.segments?.length - 1];
+                                    
+                                    return (
+                                        <div key={fIdx} className="text-gray-700 text-xs bg-blue-50 p-2 rounded border">
+                                            <p className="font-medium text-blue-800">{flight.title}</p>
+                                            
+                                            {/* Flight route and times */}
+                                            {segment && lastSegment && (
+                                                <div className="mt-1 space-y-1">
+                                                    <p className="text-gray-700 font-medium">
+                                                        🛫 {segment.departure?.iataCode || 'N/A'} → 🛬 {lastSegment.arrival?.iataCode || 'N/A'}
+                                                    </p>
+                                                    <p className="text-gray-600">
+                                                        🕐 Departure: {segment.departure?.at ? new Date(segment.departure.at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                                        {lastSegment.arrival?.at && (
+                                                            <span className="ml-2">
+                                                                • Arrival: {new Date(lastSegment.arrival.at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                    {flight.flight_details?.validatingAirlineCodes?.[0] && (
+                                                        <p className="text-gray-500">
+                                                            🏢 Airline: {flight.flight_details.validatingAirlineCodes[0]}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                            
+                                            {/* Price and basic info */}
+                                            <p className="text-gray-600 mt-1">
+                                                💰 {flight.currency || 'USD'} {flight.price?.toFixed(2) || '0.00'}
+                                                {flight.travelers && <span className="ml-2">• 👥 {flight.travelers} traveler{flight.travelers > 1 ? 's' : ''}</span>}
                                             </p>
-                                        )}
-                                    </div>
-                                ))}
+                                            
+                                            {/* Fallback for flights without detailed info */}
+                                            {(!segment || !lastSegment) && (
+                                                <p className="text-gray-600 mt-1">
+                                                    🕐 {flight.start_time || flight.departure_time || 'Time TBD'} - {flight.end_time || flight.arrival_time || 'Time TBD'}
+                                                </p>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
