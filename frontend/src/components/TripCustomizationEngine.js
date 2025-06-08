@@ -6,12 +6,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import {
-  Lightbulb, ImageIcon, ClipboardList, CalendarDays, Plane, Bed, MapPin, Sparkles, Utensils, Users, FileText, Calculator, CreditCard, CheckCircle, Compass, Loader2, AlertCircle, ChevronLeft, ChevronRight, PlusCircle, Trash2, Save, Search, Package, Hotel, Briefcase, Wallet, Info, Map
+  Lightbulb, ImageIcon, ClipboardList, CalendarDays, Plane, Bed, MapPin, Sparkles, Utensils, Users, FileText, Calculator, CreditCard, CheckCircle, Compass, Loader2, AlertCircle, ChevronLeft, ChevronRight, PlusCircle, Trash2, Save, Search, Package, Hotel, Briefcase, Wallet, Info, Map, RefreshCw
 } from 'lucide-react';
 import RoutePlanningMap from './RoutePlanningMap';
-import IntelligentRoutePlanner from './IntelligentRoutePlanner';
 import SmartRecommendations from './SmartRecommendations';
-import GoogleMapsTest from './GoogleMapsTest';
+import ActivitiesPOIsErrorBoundary from './ActivitiesPOIsErrorBoundary';
+
+// Error boundaries removed - map functionality no longer used on Activities page
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -1108,9 +1109,10 @@ const Step2CoreDetails = ({ tripData, updateTripData, handleNext, handlePrev, sa
         label="Primary Destination(s)"
         value={tripData.destinations}
         onChange={(value) => updateTripData({ destinations: value })}
-        placeholder="e.g., Guangzhou, China or Paris, France"
+        placeholder="e.g., Osaka, Japan or Tokyo, Japan;; Kyoto, Japan for multiple cities"
         required
       />
+      <p className="text-xs text-gray-500 mt-1">💡 For multiple destinations, separate with ";;" (e.g., "Tokyo, Japan;; Kyoto, Japan")</p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -2484,7 +2486,7 @@ const Step4Hotels = ({ tripData, updateTripData, handleNext, handlePrev, tripId,
              >
                {loadingHotels ? <Loader2 className="animate-spin h-5 w-5 inline mr-2" /> : <Search className="h-5 w-5 inline mr-2" />} 
                Search Hotels for {currentBookingDates.checkIn && currentBookingDates.checkOut ? 
-                 `${new Date(currentBookingDates.checkIn).toLocaleDateString()} - ${new Date(currentBookingDates.checkOut).toLocaleDateString()}` : 
+                 `${formatDateDisplay(currentBookingDates.checkIn)} - ${formatDateDisplay(currentBookingDates.checkOut)}` : 
                  'Selected Dates'
                }
              </button>
@@ -2553,6 +2555,8 @@ const Step4Hotels = ({ tripData, updateTripData, handleNext, handlePrev, tripId,
 const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePrev, tripId, token, saveTripProgress }) => {
   const [searchType, setSearchType] = useState('activities'); // 'activities' or 'pois'
   
+  // Map functionality has been removed from this page for stability
+  
   // Helper function to format date in local timezone (fixes the -1 day bug)
   const formatDateLocal = (date) => {
     const year = date.getFullYear();
@@ -2617,6 +2621,9 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
     const activityComponents = tripData.components?.filter(c => c.component_type === 'activity' || c.component_type === 'poi') || [];
     setSelectedActivities(activityComponents);
   }, [tripData.components]);
+
+  // Add comprehensive error detection and suppression for this specific page
+  // Map validation and error handling removed - no maps on this page
 
   // Function to get local guide recommendations
   const getLocalGuideRecommendations = async (location) => {
@@ -3080,9 +3087,16 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
     toast.success("Activity booking removed!");
   };
 
+  // handleWaypointsChange function removed - no longer needed without maps
+
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-medium">Find Activities & Points of Interest</h3>
+    <ActivitiesPOIsErrorBoundary componentName="Activities & POIs Page">
+              <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Find Activities & Points of Interest</h3>
+          </div>
+      
+      {/* Map functionality has been removed from this page for stability */}
       
       {/* Current Activity Bookings - Organized by Day */}
       {selectedActivities.length > 0 && (
@@ -3283,7 +3297,7 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
           className="px-3 py-1.5 rounded-md text-sm bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
         >
           {loadingAI ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
-          AI Recommendations
+          🎯 Get Smart Suggestions
         </button>
         <button 
           onClick={getAIAutoSelectActivities} 
@@ -3291,7 +3305,7 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
           className="px-3 py-1.5 rounded-md text-sm bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
         >
           {loadingAutoSelect ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
-          AI Auto-Select All
+          ✨ Create Perfect Itinerary
         </button>
       </div>
       {/* Date, Time and Location Selection for Activities */}
@@ -3396,13 +3410,33 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
       
       {searchResults.length > 0 && (
         <div className="mt-4 space-y-3 max-h-96 overflow-y-auto">
-          <h4 className="font-semibold">{searchType === 'activities' ? 'Activity Results:' : 'POI Results:'}</h4>
+          <h4 className="font-semibold">Found {searchType === 'activities' ? 'Activities' : 'Attractions'} ({searchResults.length}) in this area</h4>
           {searchResults.map((item, index) => (
-            <div key={item.id || index} className="p-3 border rounded-md hover:shadow-md">
-              <p className="font-medium">{item.name}</p>
-              {searchType === 'activities' && item.price && <p className="text-sm">Price: {item.price.amount} {item.price.currencyCode}</p>}
-              {searchType === 'pois' && item.category && <p className="text-xs text-gray-500">Category: {item.category}</p>}
-              <button onClick={() => handleAddComponent(item)} className="mt-2 px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">Add to Trip</button>
+            <div key={item.id || index} className="p-4 border rounded-lg hover:shadow-md bg-white transition-shadow">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <h5 className="font-medium text-lg text-gray-900 mb-1">{item.name}</h5>
+                  {searchType === 'activities' && item.price && (
+                    <p className="text-sm text-green-600 font-medium mb-1">💰 {item.price.amount} {item.price.currencyCode}</p>
+                  )}
+                  {searchType === 'pois' && item.category && (
+                    <p className="text-sm text-blue-600 mb-1">🏷️ {item.category}</p>
+                  )}
+                  {item.description && (
+                    <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                  )}
+                  {item.rating && (
+                    <p className="text-sm text-yellow-600">⭐ {item.rating}</p>
+                  )}
+                </div>
+                <button 
+                  onClick={() => handleAddComponent(item)} 
+                  className="ml-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                >
+                  <PlusCircle className="h-4 w-4 mr-1" />
+                  Add to Trip
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -3787,6 +3821,7 @@ const Step5ActivitiesAndPois = ({ tripData, updateTripData, handleNext, handlePr
         )}
       </div>
     </div>
+    </ActivitiesPOIsErrorBoundary>
   );
 };
 
@@ -3812,7 +3847,39 @@ const Step3RoutePlanning = ({ tripData, updateTripData, handleNext, handlePrev, 
     } 
     // Otherwise, initialize from destinations if no route planning exists yet
     else if (tripData.destinations && itineraryItems.length === 0) {
-      const destinations = tripData.destinations.split(',').map(dest => dest.trim());
+      // Smart parsing: detect "City, Country" format and extract only cities
+      const parseDestinations = (destinationsString) => {
+        // Split by semicolon or double comma first (for multiple destinations)
+        let destinations = [];
+        
+        if (destinationsString.includes(';;') || destinationsString.includes(', ,')) {
+          destinations = destinationsString.split(/;;|, ,/).map(dest => dest.trim());
+        } else {
+          // Check if this is a single "City, Country" format
+          const parts = destinationsString.split(',').map(part => part.trim());
+          
+          if (parts.length === 2) {
+            // Single destination in "City, Country" format - take only the city
+            destinations = [parts[0]];
+          } else if (parts.length > 2) {
+            // Multiple destinations - group by pairs
+            const cities = [];
+            for (let i = 0; i < parts.length; i += 2) {
+              if (parts[i]) {
+                cities.push(parts[i]);
+              }
+            }
+            destinations = cities;
+          } else {
+            // Single destination without country
+            destinations = parts;
+          }
+        }
+        
+        return destinations.filter(dest => dest && dest.length > 0);
+      };
+      
+      const destinations = parseDestinations(tripData.destinations);
       const items = destinations.map((dest, index) => {
         const date = tripData.start_date ? (() => {
           const startDate = new Date(tripData.start_date);
@@ -4078,14 +4145,7 @@ const Step3RoutePlanning = ({ tripData, updateTripData, handleNext, handlePrev, 
         Design your journey by organizing destinations and dates. Drag and drop to reorder, click dates to edit them.
       </p>
 
-      {/* Google Maps API Status Test */}
-      <GoogleMapsTest />
 
-      {/* AI-Powered Intelligent Route Planner */}
-      <IntelligentRoutePlanner 
-        tripData={tripData}
-        updateTripData={updateTripData}
-      />
 
       {/* Calendar Overview */}
       {tripData.start_date && tripData.end_date && (
@@ -4196,21 +4256,35 @@ const Step3RoutePlanning = ({ tripData, updateTripData, handleNext, handlePrev, 
       )}
 
       {/* Itinerary Builder */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Panel - Itinerary List */}
+      <div className="space-y-6">
+        {/* Itinerary List Section */}
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h4 className="font-medium">Your Itinerary with Dates</h4>
+            <h4 className="text-lg font-semibold text-gray-800">📋 Your Day-by-Day Itinerary</h4>
             <button
               onClick={addCustomDestination}
-              className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+              className="px-4 py-2 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 flex items-center"
             >
-              + Add Stop
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Add Stop
             </button>
           </div>
 
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {itineraryItems.map((item, index) => (
+          {itineraryItems.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 mb-2">No destinations added yet</p>
+              <p className="text-sm text-gray-500 mb-4">Add destinations to create your day-by-day itinerary</p>
+              <button
+                onClick={addCustomDestination}
+                className="px-4 py-2 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600"
+              >
+                Add Your First Destination
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[500px] overflow-y-auto">
+              {itineraryItems.map((item, index) => (
               <div
                 key={item.id}
                 id={`route-item-${item.id}`}
@@ -4275,8 +4349,9 @@ const Step3RoutePlanning = ({ tripData, updateTripData, handleNext, handlePrev, 
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+                          ))}
+            </div>
+          )}
 
           <div className="p-3 bg-gray-50 rounded-lg text-sm">
             <p className="font-medium text-gray-700 mb-1">💡 Pro Tips:</p>
@@ -4290,10 +4365,13 @@ const Step3RoutePlanning = ({ tripData, updateTripData, handleNext, handlePrev, 
           </div>
         </div>
 
-        {/* Right Panel - Map Preview */}
+        {/* Interactive Route Map - Full Width */}
         <div className="space-y-4">
-          <h4 className="font-medium">Route Preview</h4>
-          <div className="h-[400px] w-full border rounded-lg overflow-hidden">
+          <h4 className="text-lg font-semibold text-gray-800 flex items-center">
+            <MapPin className="h-5 w-5 mr-2 text-green-600" />
+            Interactive Route Map
+          </h4>
+          <div className="min-h-[60vh] w-full border-2 border-gray-200 rounded-lg overflow-hidden shadow-inner">
             {itineraryItems.length > 0 ? (
               <RoutePlanningMap
                 tripComponents={itineraryItems.map(item => ({
@@ -4308,6 +4386,7 @@ const Step3RoutePlanning = ({ tripData, updateTripData, handleNext, handlePrev, 
                 }))}
                 onWaypointsUpdate={handleWaypointsChange}
                 tripId={tripId}
+                tripData={tripData}
               />
             ) : (
               <div className="h-full bg-gray-100 flex items-center justify-center">
@@ -4605,6 +4684,8 @@ const Step7Optimization = ({ tripData, updateTripData, handleNext, handlePrev, s
 };
 
 const Step8Review = ({ tripData, handlePrev, handleNext, saveTripProgress, token }) => {
+    const [shortUrl, setShortUrl] = useState('');
+    const [isGeneratingShortUrl, setIsGeneratingShortUrl] = useState(false);
     const [costDetails, setCostDetails] = useState(null);
     const [loadingCost, setLoadingCost] = useState(false);
 
@@ -4676,6 +4757,63 @@ const Step8Review = ({ tripData, handlePrev, handleNext, saveTripProgress, token
         }
         
         return days;
+    };
+
+    const generateShareableContent = () => {
+        const destinations = tripData.destinations || 'Amazing Trip';
+        const dates = `${formatDateDisplay(tripData.start_date)} - ${formatDateDisplay(tripData.end_date)}`;
+        const totalCost = costDetails?.total_price ? ` • Budget: ${costDetails.currency} ${costDetails.total_price.toFixed(2)}` : '';
+        
+        return {
+            title: `${destinations} Trip Plan`,
+            text: `Check out my trip to ${destinations}! 🌍✈️\n${dates}${totalCost}\n\nPlanned with AdventureConnect 🗺️`,
+            hashtags: 'TravelPlanning,AdventureConnect,Travel,Trip'
+        };
+    };
+
+    const generateShortUrl = async () => {
+        if (shortUrl) return shortUrl;
+        
+        setIsGeneratingShortUrl(true);
+        try {
+            // For demo purposes, create a mock short URL
+            const mockShortUrl = `https://advcon.co/${Math.random().toString(36).substr(2, 8)}`;
+            setShortUrl(mockShortUrl);
+            return mockShortUrl;
+        } catch (error) {
+            console.error('Error generating short URL:', error);
+            return window.location.href;
+        } finally {
+            setIsGeneratingShortUrl(false);
+        }
+    };
+
+    const shareToFacebook = async () => {
+        const shareContent = generateShareableContent();
+        const url = await generateShortUrl();
+        const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(shareContent.text)}`;
+        window.open(facebookUrl, '_blank', 'width=600,height=400');
+    };
+
+    const shareToTwitter = async () => {
+        const shareContent = generateShareableContent();
+        const url = await generateShortUrl();
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareContent.text)}&url=${encodeURIComponent(url)}&hashtags=${encodeURIComponent(shareContent.hashtags)}`;
+        window.open(twitterUrl, '_blank', 'width=600,height=400');
+    };
+
+    const shareToTikTok = async () => {
+        const shareContent = generateShareableContent();
+        const url = await generateShortUrl();
+        const textToCopy = `${shareContent.text}\n\n${url}`;
+        navigator.clipboard.writeText(textToCopy);
+        toast.success('Trip details copied to clipboard! You can now paste it on TikTok 📱');
+    };
+
+    const copyShortUrl = async () => {
+        const url = await generateShortUrl();
+        navigator.clipboard.writeText(url);
+        toast.success('Short URL copied to clipboard! 📋');
     };
 
     useEffect(() => {
@@ -4969,6 +5107,67 @@ const Step8Review = ({ tripData, handlePrev, handleNext, saveTripProgress, token
                     <p className="text-sm text-orange-700">
                         💡 <strong>Special Offer:</strong> Book both services and save 15%! Includes 24/7 support and local SIM card.
                     </p>
+                </div>
+            </div>
+
+            {/* Social Sharing Section */}
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+                <h4 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+                    <span className="mr-2">📱</span>
+                    Share Your Amazing Trip Plan
+                </h4>
+                <p className="text-sm text-blue-700 mb-4">
+                    Share your custom itinerary with friends and family! Let them see your incredible travel plans.
+                </p>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <button 
+                        onClick={shareToFacebook}
+                        className="flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                        <span className="mr-2">📘</span>
+                        Facebook
+                    </button>
+                    
+                    <button 
+                        onClick={shareToTwitter}
+                        className="flex items-center justify-center px-3 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors text-sm"
+                    >
+                        <span className="mr-2">🐦</span>
+                        Twitter
+                    </button>
+                    
+                    <button 
+                        onClick={shareToTikTok}
+                        className="flex items-center justify-center px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm"
+                    >
+                        <span className="mr-2">🎵</span>
+                        TikTok
+                    </button>
+                    
+                    <button 
+                        onClick={copyShortUrl}
+                        disabled={isGeneratingShortUrl}
+                        className="flex items-center justify-center px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm disabled:opacity-50"
+                    >
+                        {isGeneratingShortUrl ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                        ) : (
+                            <span className="mr-2">🔗</span>
+                        )}
+                        Copy Link
+                    </button>
+                </div>
+                
+                {shortUrl && (
+                    <div className="mt-3 p-2 bg-white border border-blue-200 rounded text-sm">
+                        <span className="text-gray-600">Short URL:</span> 
+                        <span className="font-mono text-blue-600 ml-2">{shortUrl}</span>
+                    </div>
+                )}
+                
+                <div className="mt-3 text-xs text-blue-600">
+                    💡 Share your trip planning experience and inspire others to travel! 🌍✈️
                 </div>
             </div>
 

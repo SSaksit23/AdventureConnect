@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useGoogleMaps } from '../contexts/GoogleMapsContext';
 import { toast } from 'react-toastify';
 import { 
   MapPin, 
@@ -11,6 +12,7 @@ import {
   Car, 
   Bus,
   Search,
+  
   ArrowRight,
   ChevronDown,
   ChevronUp,
@@ -27,40 +29,8 @@ const IntelligentRoutePlanner = ({ tripData, updateTripData }) => {
   const [travelMode, setTravelMode] = useState('DRIVING');
   const [showDetails, setShowDetails] = useState(false);
   const [planningStep, setPlanningStep] = useState('input');
-  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
-
-  // Check if Google Maps is loaded
-  useEffect(() => {
-    const checkGoogleMaps = () => {
-      if (window.google && window.google.maps && window.google.maps.places) {
-        setGoogleMapsLoaded(true);
-        return true;
-      }
-      return false;
-    };
-
-    if (checkGoogleMaps()) {
-      return;
-    }
-
-    // Poll for Google Maps loading
-    const interval = setInterval(() => {
-      if (checkGoogleMaps()) {
-        clearInterval(interval);
-      }
-    }, 500);
-
-    // Stop polling after 30 seconds
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-      console.log('Google Maps API not loaded after 30 seconds');
-    }, 30000);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
-  }, []);
+  
+  const { isLoaded, globalMapsError, fallbackMode, isGoogleMapsReady } = useGoogleMaps();
 
   // Sample attractions data as fallback
   const sampleAttractions = [
@@ -101,15 +71,23 @@ const IntelligentRoutePlanner = ({ tripData, updateTripData }) => {
       toast.error('Please add destinations in Core Details first');
       return;
     }
+    
+    toast.info(`🎯 Starting route planning for: ${tripData.destinations}`);
 
     setIsLoading(true);
     setPlanningStep('search');
 
     try {
-      if (googleMapsLoaded && window.google && window.google.maps && window.google.maps.places) {
-        // Use real Google Maps API
-        toast.info('Using Google Maps API to find attractions...');
-        await findAttractionsWithAPI();
+      if (isGoogleMapsReady && !fallbackMode && !globalMapsError) {
+        try {
+          // Use real Google Maps API
+          toast.info('Using Google Maps API to find attractions...');
+          await findAttractionsWithAPI();
+        } catch (apiError) {
+          console.warn('Google Maps API error, falling back to sample data:', apiError);
+          toast.info('Google Maps had issues, using sample attractions...');
+          await findAttractionsWithSampleData();
+        }
       } else {
         // Use sample data as fallback
         toast.info('Google Maps API not available. Using sample attractions...');
@@ -118,7 +96,12 @@ const IntelligentRoutePlanner = ({ tripData, updateTripData }) => {
     } catch (error) {
       console.error('Error generating route:', error);
       toast.error('Failed to generate route. Using sample data...');
-      await findAttractionsWithSampleData();
+      try {
+        await findAttractionsWithSampleData();
+      } catch (fallbackError) {
+        console.error('Even fallback failed:', fallbackError);
+        toast.error('Unable to load attractions. Please try refreshing the page.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -284,7 +267,7 @@ const IntelligentRoutePlanner = ({ tripData, updateTripData }) => {
 
       {/* API Status */}
       <div className="mb-4 p-3 rounded-lg border">
-        {googleMapsLoaded ? (
+        {isGoogleMapsReady && !fallbackMode && !globalMapsError ? (
           <div className="flex items-center text-green-600">
             <CheckCircle className="h-4 w-4 mr-2" />
             <span className="text-sm">Google Maps API loaded - Full functionality available</span>
@@ -292,7 +275,7 @@ const IntelligentRoutePlanner = ({ tripData, updateTripData }) => {
         ) : (
           <div className="flex items-center text-orange-600">
             <AlertCircle className="h-4 w-4 mr-2" />
-            <span className="text-sm">Google Maps API not loaded - Using sample data</span>
+            <span className="text-sm">Google Maps API not available - Using sample data</span>
           </div>
         )}
       </div>
@@ -490,8 +473,18 @@ const IntelligentRoutePlanner = ({ tripData, updateTripData }) => {
                   {routeAnalysis.legs.map((leg, index) => (
                     <div key={index} className="bg-white border border-green-200 rounded p-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{leg.from} → {leg.to}</span>
-                        <span className="text-xs text-gray-600">{leg.distance} • {leg.duration}</span>
+                        <div className="flex items-center">
+                          <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-medium mr-2">
+                            {index + 1}
+                          </div>
+                          <span className="font-medium text-sm">{leg.from}</span>
+                          <ArrowRight className="h-4 w-4 mx-2 text-gray-400" />
+                          <span className="font-medium text-sm">{leg.to}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-gray-600">{leg.distance}</div>
+                          <div className="text-xs text-blue-600 font-medium">{leg.duration}</div>
+                        </div>
                       </div>
                     </div>
                   ))}

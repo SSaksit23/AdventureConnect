@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Outlet, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { GoogleMapsProvider } from './contexts/GoogleMapsContext';
+import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import TripCustomizationEngine from './components/TripCustomizationEngine';
 import { User, LogOut, Settings, Menu, X, Home, Compass } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
@@ -140,22 +142,26 @@ const Layout = () => {
 
 const App = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <ToastContainer position="bottom-right" autoClose={5000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
-        <Routes>
-          <Route element={<Layout />}>
-            <Route path="/" element={<HomePage />} />
-            
-            {/* Trip Customization Routes */}
-            <Route path="/customize-trip" element={<TripCustomizationEngine />} />
-            <Route path="/customize-trip/:tripId" element={<TripCustomizationEngine />} />
-            
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <GlobalErrorBoundary>
+      <GoogleMapsProvider>
+        <AuthProvider>
+          <Router>
+            <ToastContainer position="bottom-right" autoClose={5000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<HomePage />} />
+                
+                {/* Trip Customization Routes */}
+                <Route path="/customize-trip" element={<TripCustomizationEngine />} />
+                <Route path="/customize-trip/:tripId" element={<TripCustomizationEngine />} />
+                
+                <Route path="*" element={<NotFoundPage />} />
+              </Route>
+            </Routes>
+          </Router>
+        </AuthProvider>
+      </GoogleMapsProvider>
+    </GlobalErrorBoundary>
   );
 };
 
