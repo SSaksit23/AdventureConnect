@@ -16,7 +16,7 @@ const defaultCenter = {
 };
 
 function GoogleMapComponent({ originCoords, destinationCoords, originName, destinationName }) {
-  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'AIzaSyC8thfcniP-SWuADDMKaRKwG_4chz01E8k';
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',

@@ -16,7 +16,7 @@ import {
   Zap 
 } from 'lucide-react';
 
-const API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+const API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'AIzaSyC8thfcniP-SWuADDMKaRKwG_4chz01E8k';
 
 const MapComponent = ({ initialWaypoints, onWaypointsUpdate, tripId }) => {
   const ref = useRef(null);
