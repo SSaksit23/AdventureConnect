@@ -9,6 +9,7 @@ import {
   Lightbulb, ImageIcon, ClipboardList, CalendarDays, Plane, Bed, MapPin, Sparkles, Utensils, Users, FileText, Calculator, CreditCard, CheckCircle, Compass, Loader2, AlertCircle, ChevronLeft, ChevronRight, PlusCircle, Trash2, Save, Search, Package, Hotel, Briefcase, Wallet, Info, Map
 } from 'lucide-react';
 import RoutePlanningMap from './RoutePlanningMap';
+import IntelligentRoutePlanner from './IntelligentRoutePlanner';
 import SmartRecommendations from './SmartRecommendations';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -4075,6 +4076,12 @@ const Step3RoutePlanning = ({ tripData, updateTripData, handleNext, handlePrev, 
       <p className="text-sm text-gray-600">
         Design your journey by organizing destinations and dates. Drag and drop to reorder, click dates to edit them.
       </p>
+
+      {/* AI-Powered Intelligent Route Planner */}
+      <IntelligentRoutePlanner 
+        tripData={tripData}
+        updateTripData={updateTripData}
+      />
 
       {/* Calendar Overview */}
       {tripData.start_date && tripData.end_date && (
