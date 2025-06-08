@@ -11,6 +11,7 @@ import {
 import RoutePlanningMap from './RoutePlanningMap';
 import IntelligentRoutePlanner from './IntelligentRoutePlanner';
 import SmartRecommendations from './SmartRecommendations';
+import GoogleMapsTest from './GoogleMapsTest';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -4076,6 +4077,9 @@ const Step3RoutePlanning = ({ tripData, updateTripData, handleNext, handlePrev, 
       <p className="text-sm text-gray-600">
         Design your journey by organizing destinations and dates. Drag and drop to reorder, click dates to edit them.
       </p>
+
+      {/* Google Maps API Status Test */}
+      <GoogleMapsTest />
 
       {/* AI-Powered Intelligent Route Planner */}
       <IntelligentRoutePlanner 
