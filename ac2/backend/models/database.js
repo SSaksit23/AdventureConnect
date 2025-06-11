@@ -486,7 +486,7 @@ const categoryModel = {
    * @returns {Promise} - Array of categories
    */
   getAll: async () => {
-    const result = await query('SELECT * FROM service_categories ORDER BY name');
+    const result = await query('SELECT * FROM categories ORDER BY name');
     return result.rows;
   },
   
@@ -496,7 +496,7 @@ const categoryModel = {
    * @returns {Promise} - Category object or null
    */
   findById: async (id) => {
-    const result = await query('SELECT * FROM service_categories WHERE id = $1', [id]);
+    const result = await query('SELECT * FROM categories WHERE id = $1', [id]);
     return result.rows[0] || null;
   },
   
@@ -506,11 +506,11 @@ const categoryModel = {
    * @returns {Promise} - New category object
    */
   create: async (categoryData) => {
-    const { name, description, icon_name, parent_id } = categoryData;
+    const { name, description, parent_id } = categoryData;
     
     const result = await query(
-      'INSERT INTO service_categories (name, description, icon_name, parent_id) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, description, icon_name, parent_id]
+      'INSERT INTO categories (name, description, parent_id) VALUES ($1, $2, $3) RETURNING *',
+      [name, description, parent_id]
     );
     
     return result.rows[0];
@@ -523,13 +523,13 @@ const categoryModel = {
    * @returns {Promise} - Updated category object
    */
   update: async (id, categoryData) => {
-    const { name, description, icon_name, parent_id } = categoryData;
+    const { name, description, parent_id } = categoryData;
     
     const result = await query(
-      `UPDATE service_categories 
-       SET name = $1, description = $2, icon_name = $3, parent_id = $4, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $5 RETURNING *`,
-      [name, description, icon_name, parent_id, id]
+      `UPDATE categories 
+       SET name = $1, description = $2, parent_id = $3 
+       WHERE id = $4 RETURNING *`,
+      [name, description, parent_id, id]
     );
     
     return result.rows[0];
@@ -541,7 +541,7 @@ const categoryModel = {
    * @returns {Promise} - Success status
    */
   delete: async (id) => {
-    const result = await query('DELETE FROM service_categories WHERE id = $1 RETURNING id', [id]);
+    const result = await query('DELETE FROM categories WHERE id = $1 RETURNING id', [id]);
     return result.rows[0] || null;
   },
   
@@ -551,16 +551,15 @@ const categoryModel = {
    */
   getCategoriesWithSubcategories: async () => {
     const result = await query(
-      `SELECT c.id, c.name, c.description, c.icon_name, c.parent_id,
+      `SELECT c.id, c.name, c.description, c.parent_id,
         (SELECT json_agg(json_build_object(
           'id', sc.id,
           'name', sc.name,
-          'description', sc.description,
-          'icon_name', sc.icon_name
+          'description', sc.description
         ))
-        FROM service_categories sc
+        FROM categories sc
         WHERE sc.parent_id = c.id) as subcategories
-       FROM service_categories c
+       FROM categories c
        WHERE c.parent_id IS NULL
        ORDER BY c.name`
     );
