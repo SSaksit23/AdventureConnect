@@ -17,10 +17,10 @@ dotenv.config();
 // --- Custom Modules ---
 const { pool, connectRedis, redisClient: directRedisClient } = require('./models/database'); // Assuming redisClient is exported after connection
 const authRoutes = require('./routes/auth');
-const providerRoutes = require('./routes/providers');
+// const providerRoutes = require('./routes/providers'); // Temporarily disabled - complex provider system
 const tripRoutes = require('./routes/trips');
 const searchRoutes = require('./routes/search');
-const recommendationsRoutes = require('./routes/recommendations'); // Import recommendations routes
+// const recommendationsRoutes = require('./routes/recommendations'); // Temporarily disabled
 
 // --- Winston Logger Setup ---
 const logger = winston.createLogger({
@@ -33,8 +33,9 @@ const logger = winston.createLogger({
   ),
   defaultMeta: { service: 'adventureconnect-api' },
   transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
+    // File logging disabled to avoid directory issues in Docker
+    // new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+    // new winston.transports.File({ filename: 'logs/combined.log' }),
   ],
 });
 
@@ -143,10 +144,10 @@ app.use('/api/auth/register', authLimiter);
 
 // --- API Routes ---
 app.use('/api/auth', authRoutes);
-app.use('/api/providers', providerRoutes);
+// app.use('/api/providers', providerRoutes); // Temporarily disabled
 app.use('/api/trips', tripRoutes);
 app.use('/api/search', searchRoutes);
-app.use('/api/recommendations', recommendationsRoutes); // Added recommendations routes
+// app.use('/api/recommendations', recommendationsRoutes); // Temporarily disabled
 
 // Health Check Endpoint
 app.get('/api/health', async (req, res) => {

@@ -1,3 +1,30 @@
+-- Users table for authentication
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    date_of_birth DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Bookings table for user trip bookings
+CREATE TABLE IF NOT EXISTS bookings (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    booking_reference VARCHAR(20) UNIQUE NOT NULL,
+    trip_data JSONB NOT NULL,
+    total_price DECIMAL(10,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'USD',
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS locations (
     id SERIAL PRIMARY KEY,
     iata_code VARCHAR(3) UNIQUE,
